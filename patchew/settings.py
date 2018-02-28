@@ -113,6 +113,8 @@ def env_detect():
         raise Exception("Unknown running environment")
 
 DEBUG, DATA_DIR = env_detect()
+
+USE_X_FORWARDED_HOST = True
 if DEBUG:
     ALLOWED_HOSTS = ["*"]
 else:
