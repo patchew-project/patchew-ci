@@ -37,7 +37,6 @@
         value: "./patchew-cli -s {{ patchew_server }}"
     - cron:
         name: "Patchew tester {{ instance_name }}"
-        user: patchew
         minute: "*/10"
         job: "{ $PATCHEW login tester $(cat .patchew-tester-pass); $PATCHEW tester --name {{ instance_name }} --singleton -p {{ tester_project }}; } >>$HOME/patchew-tester.log 2>&1"
 
