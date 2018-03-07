@@ -22,9 +22,10 @@
     - debug:
         msg: Patchew tester deploy starting
     - name: Copy patchew-cli
-      synchronize:
-        src: ../../../patchew-cli
+      copy:
+        src: ../../patchew-cli
         dest: .
+        mode: u+x
     - name: Generate password file
       shell: "echo {{ tester_pass }} > $HOME/.patchew-tester-pass"
     - name: Login with patchew-cli
