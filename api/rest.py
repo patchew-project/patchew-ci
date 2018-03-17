@@ -146,15 +146,15 @@ class ProjectMessagesViewSetMixin(mixins.RetrieveModelMixin):
     def get_queryset(self):
         return self.queryset.filter(project=self.kwargs['projects_pk'])
 
-class Result(namedtuple("Result", "name status log_url message data")):
+class Result(namedtuple("Result", "name status log log_url message data")):
     __slots__ = ()
 
-    def __new__(cls, name, status, message, log_url=None, data=None, request=None):
+    def __new__(cls, name, status, message, log=None, log_url=None, data=None, request=None):
         if log_url is not None and request is not None:
             log_url = request.build_absolute_uri(log_url)
         if status not in ('pending', 'success', 'failure'):
             raise ValueError("invalid value '%s' for status field" % status)
-        return super(cls, Result).__new__(cls, status=status, log_url=log_url,
+        return super(cls, Result).__new__(cls, status=status, log=log, log_url=log_url,
                                           message=message, data=data, name=name)
 
 # Series
@@ -342,8 +342,10 @@ class ResultSerializer(serializers.Serializer):
     log_url = CharField(required=False)
     data = JSONField(required=False)
 
+class ResultSerializerFull(ResultSerializer):
+    log = CharField(required=False)
+
 class SeriesResultsViewSet(viewsets.ViewSet, generics.GenericAPIView):
-    serializer_class = ResultSerializer
     lookup_field = 'name'
     lookup_value_regex = '[^/]+'
 
@@ -351,15 +353,21 @@ class SeriesResultsViewSet(viewsets.ViewSet, generics.GenericAPIView):
         return Message.objects.filter(project=self.kwargs['projects_pk'],
                                       message_id=self.kwargs['series_message_id'])
 
-    def get_results(self):
+    def get_serializer_class(self, *args, **kwargs):
+        if self.lookup_field in self.kwargs:
+            return ResultSerializerFull
+        return ResultSerializer
+
+    def get_results(self, detailed):
         message = self.get_queryset()[0]
         results = []
         dispatch_module_hook("rest_results_hook", request=self.request,
-                             message=message, results=results)
+                             message=message, results=results,
+                             detailed=detailed)
         return {x.name: x for x in results}
 
     def list(self, request, *args, **kwargs):
-        results = self.get_results().values()
+        results = self.get_results(detailed=False).values()
         serializer = self.get_serializer(results, many=True)
         # Fake paginator response for forwards-compatibility, in case
         # this ViewSet becomes model-based
@@ -369,7 +377,7 @@ class SeriesResultsViewSet(viewsets.ViewSet, generics.GenericAPIView):
         ]))
 
     def retrieve(self, request, name, *args, **kwargs):
-        results = self.get_results()
+        results = self.get_results(detailed=True)
         try:
             result = results[name]
         except KeyError:

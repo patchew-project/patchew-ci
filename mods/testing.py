@@ -282,7 +282,7 @@ class TestingModule(PatchewModule):
         return reverse("testing-get-prop",
                        kwargs={"project_or_series": obj.message_id})
 
-    def rest_results_hook(self, request, message, results):
+    def rest_results_hook(self, request, message, results, detailed=False):
         for pn, p in message.get_properties().items():
             if not pn.startswith("testing.report."):
                 continue
@@ -290,8 +290,12 @@ class TestingModule(PatchewModule):
             failed = not p["passed"]
             log_url = self.reverse_testing_log(message, tn, request=request, html=False)
             passed_str = "failure" if failed else "success"
+            if detailed:
+                log = message.get_property("testing.log." + tn)
+            else:
+                log = None
             results.append(Result(name='testing.' + tn, message=message, status=passed_str,
-                                  log_url=log_url, request=request))
+                                  log=log, log_url=log_url, request=request))
 
     def prepare_message_hook(self, request, message, detailed):
         if not message.is_series_head:

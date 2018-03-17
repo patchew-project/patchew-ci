@@ -108,6 +108,7 @@ class GitTest(PatchewTestCase):
         resp = self.api_client.get('%sseries/%s/results/git/' % (self.PROJECT_BASE, MESSAGE_ID))
         self.assertEqual(resp.data['status'], 'pending')
         self.assertEqual(resp.data['log_url'], None)
+        self.assertEqual(resp.data['log'], None)
 
     def test_rest_apply_failure(self):
         self.cli_import("0014-bar-patch.mbox.gz")
@@ -115,12 +116,19 @@ class GitTest(PatchewTestCase):
         MESSAGE_ID = '20160628014747.20971-2-famz@redhat.com'
         resp = self.api_client.get('%sseries/%s/' % (self.PROJECT_BASE, MESSAGE_ID))
         self.assertEqual(resp.data['is_complete'], True)
+
+        resp = self.api_client.get('%sseries/%s/results/' % (self.PROJECT_BASE, MESSAGE_ID))
+        self.assertEqual(resp.data['results'][0]['name'], 'git')
+        self.assertEqual('log' in resp.data['results'][0], False)
+        self.assertEqual('log_url' in resp.data['results'][0], True)
+
         resp = self.api_client.get('%sseries/%s/results/git/' % (self.PROJECT_BASE, MESSAGE_ID))
         self.assertEqual(resp.data['status'], 'failure')
         self.assertEqual('repo' in resp.data, False)
         self.assertEqual('tag' in resp.data, False)
         log = self.client.get(resp.data['log_url'])
         self.assertEqual(log.status_code, 200)
+        self.assertEqual(log.content.decode(), resp.data['log'])
 
     def test_rest_apply_success(self):
         self.cli_import("0013-foo-patch.mbox.gz")
@@ -134,6 +142,7 @@ class GitTest(PatchewTestCase):
         self.assertEqual(resp.data['data']['tag'], "refs/tags/patchew/20160628014747.20971-1-famz@redhat.com")
         log = self.client.get(resp.data['log_url'])
         self.assertEqual(log.status_code, 200)
+        self.assertEqual(log.content.decode(), resp.data['log'])
 
 if __name__ == '__main__':
     main()
