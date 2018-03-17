@@ -8,19 +8,22 @@
 # This work is licensed under the MIT License.  Please see the LICENSE file or
 # http://opensource.org/licenses/MIT.
 
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 from django.contrib.auth.models import User
+from django.http import Http404
 from django.template import loader
 
 from mod import dispatch_module_hook
 from .models import Project, Message
 from .search import SearchEngine
-from rest_framework import permissions, serializers, viewsets, filters, mixins, renderers
+from rest_framework import (permissions, serializers, viewsets, filters,
+    mixins, generics, renderers)
 from rest_framework.decorators import detail_route
-from rest_framework.fields import SerializerMethodField
+from rest_framework.fields import SerializerMethodField, CharField, JSONField
 from rest_framework.relations import HyperlinkedIdentityField
 from rest_framework.response import Response
+import rest_framework
 
 SEARCH_PARAM = 'q'
 
@@ -143,16 +146,16 @@ class ProjectMessagesViewSetMixin(mixins.RetrieveModelMixin):
     def get_queryset(self):
         return self.queryset.filter(project=self.kwargs['projects_pk'])
 
-class Result(namedtuple("Result", "name status log_url data")):
+class Result(namedtuple("Result", "name status log_url message data")):
     __slots__ = ()
 
-    def __new__(cls, name, status, log_url=None, data=None, request=None):
+    def __new__(cls, name, status, message, log_url=None, data=None, request=None):
         if log_url is not None and request is not None:
             log_url = request.build_absolute_uri(log_url)
         if status not in ('pending', 'success', 'failure'):
             raise ValueError("invalid value '%s' for status field" % status)
         return super(cls, Result).__new__(cls, status=status, log_url=log_url,
-                                          data=data, name=name)
+                                          message=message, data=data, name=name)
 
 # Series
 
@@ -176,8 +179,8 @@ class SeriesSerializer(BaseMessageSerializer):
 
     resource_uri = HyperlinkedMessageField(view_name='series-detail')
     message = HyperlinkedMessageField(view_name='messages-detail')
+    results = HyperlinkedMessageField(view_name='results-list', lookup_field='series_message_id')
     total_patches = SerializerMethodField()
-    results = SerializerMethodField()
 
     def __init__(self, *args, **kwargs):
         self.detailed = kwargs.pop('detailed', False)
@@ -189,13 +192,6 @@ class SeriesSerializer(BaseMessageSerializer):
         dispatch_module_hook("rest_series_fields_hook", request=request,
                              fields=fields, detailed=self.detailed)
         return fields
-
-    def get_results(self, message):
-        results = []
-        request = self.context['request']
-        dispatch_module_hook("rest_results_hook", request=request,
-                             message=message, results=results)
-        return {x.name: x._asdict() for x in results}
 
     def get_total_patches(self, obj):
         return obj.get_total_patches()
@@ -329,3 +325,54 @@ class MessagesViewSet(ProjectMessagesViewSetMixin,
         serializer = BaseMessageSerializer(page, many=True,
                                            context=self.get_serializer_context())
         return self.get_paginated_response(serializer.data)
+
+# Results
+
+class HyperlinkedResultField(HyperlinkedIdentityField):
+    def get_url(self, obj, view_name, request, format):
+        message = obj.message
+        kwargs = {'projects_pk': message.project_id, 'series_message_id': message.message_id,
+                  'name': obj.name}
+        return self.reverse(view_name, kwargs=kwargs, request=request, format=format)
+
+class ResultSerializer(serializers.Serializer):
+    resource_uri = HyperlinkedResultField(view_name='results-detail')
+    name = CharField()
+    status = CharField() # one of 'failure', 'success', 'pending'
+    log_url = CharField(required=False)
+    data = JSONField(required=False)
+
+class SeriesResultsViewSet(viewsets.ViewSet, generics.GenericAPIView):
+    serializer_class = ResultSerializer
+    lookup_field = 'name'
+    lookup_value_regex = '[^/]+'
+
+    def get_queryset(self):
+        return Message.objects.filter(project=self.kwargs['projects_pk'],
+                                      message_id=self.kwargs['series_message_id'])
+
+    def get_results(self):
+        message = self.get_queryset()[0]
+        results = []
+        dispatch_module_hook("rest_results_hook", request=self.request,
+                             message=message, results=results)
+        return {x.name: x for x in results}
+
+    def list(self, request, *args, **kwargs):
+        results = self.get_results().values()
+        serializer = self.get_serializer(results, many=True)
+        # Fake paginator response for forwards-compatibility, in case
+        # this ViewSet becomes model-based
+        return Response(OrderedDict([
+            ('count', len(results)),
+            ('results', serializer.data)
+        ]))
+
+    def retrieve(self, request, name, *args, **kwargs):
+        results = self.get_results()
+        try:
+            result = results[name]
+        except KeyError:
+            raise Http404
+        serializer = self.get_serializer(result)
+        return Response(serializer.data)

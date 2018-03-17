@@ -290,8 +290,8 @@ class TestingModule(PatchewModule):
             failed = not p["passed"]
             log_url = self.reverse_testing_log(message, tn, request=request, html=False)
             passed_str = "failure" if failed else "success"
-            results.append(Result(name='testing.' + tn, status=passed_str, log_url=log_url,
-                                  request=request))
+            results.append(Result(name='testing.' + tn, message=message, status=passed_str,
+                                  log_url=log_url, request=request))
 
     def prepare_message_hook(self, request, message, detailed):
         if not message.is_series_head:

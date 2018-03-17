@@ -129,8 +129,8 @@ class GitModule(PatchewModule):
         else:
             status = 'pending'
             log_url = None
-        results.append(Result(name='git', status=status, log_url=log_url, data=data,
-                              request=request))
+        results.append(Result(name='git', message=message, status=status,
+                              log_url=log_url, data=data, request=request))
 
     def prepare_message_hook(self, request, message, detailed):
         if not message.is_series_head:
