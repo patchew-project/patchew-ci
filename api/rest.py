@@ -8,6 +8,8 @@
 # This work is licensed under the MIT License.  Please see the LICENSE file or
 # http://opensource.org/licenses/MIT.
 
+from collections import namedtuple
+
 from django.contrib.auth.models import User
 from django.template import loader
 
@@ -140,6 +142,17 @@ class ProjectMessagesViewSetMixin(mixins.RetrieveModelMixin):
     def get_queryset(self):
         return self.queryset.filter(project=self.kwargs['projects_pk'])
 
+class Result(namedtuple("Result", "name status log_url data")):
+    __slots__ = ()
+
+    def __new__(cls, name, status, log_url=None, data=None, request=None):
+        if log_url is not None and request is not None:
+            log_url = request.build_absolute_uri(log_url)
+        if status not in ('pending', 'success', 'failure'):
+            raise ValueError("invalid value '%s' for status field" % status)
+        return super(cls, Result).__new__(cls, status=status, log_url=log_url,
+                                          data=data, name=name)
+
 # Series
 
 class ReplySerializer(BaseMessageSerializer):
@@ -177,11 +190,11 @@ class SeriesSerializer(BaseMessageSerializer):
         return fields
 
     def get_results(self, message):
-        results = {}
+        results = []
         request = self.context['request']
         dispatch_module_hook("rest_results_hook", request=request,
                              message=message, results=results)
-        return results
+        return {x.name: x._asdict() for x in results}
 
     def get_total_patches(self, obj):
         return obj.get_total_patches()

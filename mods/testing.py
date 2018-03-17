@@ -20,6 +20,7 @@ import smtplib
 import email
 import traceback
 import math
+from api.rest import Result
 from api.views import APILoginRequiredView
 from api.models import Message, Project, MessageProperty
 from api.search import SearchEngine
@@ -289,11 +290,8 @@ class TestingModule(PatchewModule):
             failed = not p["passed"]
             log_url = self.reverse_testing_log(message, tn, request=request, html=False)
             passed_str = "failure" if failed else "success"
-            result = {
-                'status': passed_str,
-                'log_url': log_url
-            }
-            results['testing.' + tn] = result
+            results.append(Result(name='testing.' + tn, status=passed_str, log_url=log_url,
+                                  request=request))
 
     def prepare_message_hook(self, request, message, detailed):
         if not message.is_series_head:
