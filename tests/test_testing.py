@@ -43,6 +43,9 @@ class TestingTest(PatchewTestCase):
         self.msg.set_property("git.tag", "dummy tag")
         self.msg.set_property("git.base", "dummy base")
 
+    def test_testing_ready(self):
+        self.assertTrue(self.msg.get_property("testing.ready", True))
+
     def msg_testing_done(self, log=None, **report):
         if not 'passed' in report:
             report['passed'] = True
