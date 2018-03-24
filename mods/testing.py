@@ -119,11 +119,9 @@ class TestingModule(PatchewModule):
             and old_value is None \
             and obj.get_property("git.tag") and obj.get_property("git.repo"):
                 self.remove_testing_properties(obj)
-                obj.set_property("testing.ready", 1)
         elif isinstance(obj, Project) and name == "git.head" \
             and old_value != value:
             self.remove_testing_properties(obj)
-            obj.set_property("testing.ready", 1)
 
     def remove_testing_properties(self, obj, test=""):
         for k in list(obj.get_properties().keys()):
@@ -135,6 +133,7 @@ class TestingModule(PatchewModule):
                k.startswith("testing.report." + test) or \
                k.startswith("testing.log." + test):
                 obj.set_property(k, None)
+        obj.set_property("testing.ready", 1)
 
     def www_view_testing_reset(self, request, project_or_series):
         if not request.user.is_authenticated:
