@@ -231,7 +231,7 @@ class SeriesViewSet(BaseMessageViewSet):
     search_fields = (SEARCH_PARAM,)
 
 class ProjectSeriesViewSet(ProjectMessagesViewSetMixin,
-                           SeriesViewSet):
+                           SeriesViewSet,mixins.DestroyModelMixin):
     def collect_patches(self, series):
         if series.is_patch:
             patches = [series]
