@@ -14,7 +14,7 @@ from django.template import loader
 from mod import dispatch_module_hook
 from .models import Project, Message
 from .search import SearchEngine
-from rest_framework import permissions, serializers, viewsets, filters, mixins, renderers
+from rest_framework import permissions, serializers, viewsets, filters, mixins, renderers, status
 from rest_framework.decorators import detail_route
 from rest_framework.fields import SerializerMethodField
 from rest_framework.relations import HyperlinkedIdentityField
@@ -231,7 +231,7 @@ class SeriesViewSet(BaseMessageViewSet):
     search_fields = (SEARCH_PARAM,)
 
 class ProjectSeriesViewSet(ProjectMessagesViewSetMixin,
-                           SeriesViewSet):
+                           SeriesViewSet, mixins.DestroyModelMixin):
     def collect_patches(self, series):
         if series.is_patch:
             patches = [series]
@@ -264,6 +264,11 @@ class ProjectSeriesViewSet(ProjectMessagesViewSetMixin,
             for i in series.patches:
                 self.collect_replies(i, series.replies)
         return series
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        Message.objects.delete_subthread(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 # Messages
 
