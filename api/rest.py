@@ -311,8 +311,25 @@ class StaticTextRenderer(renderers.BaseRenderer):
             return data
 
 class MessagesViewSet(ProjectMessagesViewSetMixin,
-                      BaseMessageViewSet):
+                      BaseMessageViewSet, mixins.CreateModelMixin):
     serializer_class = MessageSerializer
+    
+    def create(self, request, *args, **kwargs):
+        def find_message_projects(m):
+            return [p for p in Project.objects.all() if p.recognizes(m)]
+            
+        msg = MboxMessage(request.data)
+        project = find_message_projects(msg)
+        msg.project = project
+        serializer = self.get_serializer(data=msg.get_json())
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+    def perform_create(self, serializer):
+        serializer.save()
 
     @detail_route(renderer_classes=[StaticTextRenderer])
     def mbox(self, request, *args, **kwargs):
