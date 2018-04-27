@@ -125,8 +125,8 @@ class BaseMessageSerializer(serializers.ModelSerializer):
 
     resource_uri = HyperlinkedMessageField(view_name='messages-detail')
 
-    recipients = SerializerMethodField()
-    sender = SerializerMethodField()
+    # recipients = SerializerMethodField()
+    # sender = SerializerMethodField()
 
     def format_name_addr(self, name, addr):
         d = {}
@@ -135,12 +135,12 @@ class BaseMessageSerializer(serializers.ModelSerializer):
         d['address'] = addr
         return d
 
-    def get_recipients(self, obj):
-        return [self.format_name_addr(*x) for x in obj.get_recipients()]
+    # def get_recipients(self, obj):
+    #     return [self.format_name_addr(*x) for x in obj.get_recipients()]
 
-    def get_sender(self, obj):
-        name, addr = obj.get_sender()
-        return self.format_name_addr(*obj.get_sender())
+    # def get_sender(self, obj):
+    #     name, addr = obj.get_sender()
+    #     return self.format_name_addr(*obj.get_sender())
 
 # a message_id is *not* unique, so we can only list
 class BaseMessageViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -285,7 +285,8 @@ class ProjectSeriesViewSet(ProjectMessagesViewSetMixin,
 class MessageSerializer(BaseMessageSerializer):
     class Meta:
         model = Message
-        fields = BaseMessageSerializer.Meta.fields + ('mbox', )
+        # fields = BaseMessageSerializer.Meta.fields + ('mbox', )
+        fields = '__all__'
 
     def get_mbox(self, obj):
         return obj.get_mbox()
@@ -311,9 +312,9 @@ class StaticTextRenderer(renderers.BaseRenderer):
             return data
 
 class MessagesViewSet(ProjectMessagesViewSetMixin,
-                      BaseMessageViewSet):
+                      BaseMessageViewSet, mixins.CreateModelMixin):
     serializer_class = MessageSerializer
-
+    
     @detail_route(renderer_classes=[StaticTextRenderer])
     def mbox(self, request, *args, **kwargs):
         message = self.get_object()

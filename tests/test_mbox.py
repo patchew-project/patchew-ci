@@ -13,6 +13,7 @@ import sys
 import mbox
 sys.path.append(os.path.dirname(__file__))
 from patchewtest import PatchewTestCase, main
+import datetime
 
 class MboxTest(PatchewTestCase):
 
@@ -51,6 +52,24 @@ Virtualization:  qemu.org | libvirt.org
         with open(dp, "r") as f:
             msg = mbox.MboxMessage(f.read())
         self.assertTrue(msg.is_patch())
+
+    def test_get_json(self):
+        expected = {'message_id': '20160628014747.20971-1-famz@redhat.com', 
+                    'in_reply_to': '', 
+                    'date': datetime.datetime(2016, 6, 28, 1, 47, 47), 
+                    'subject': '[Qemu-devel] [PATCH] quorum: Only compile when supported', 
+                    'stripped_subject': 'quorum: Only compile when supported', 
+                    'version': 1, 
+                    'sender': '["Fam Zheng", "famz@redhat.com"]', 
+                    'recipients': '[["qemu-devel@nongnu.org", "qemu-devel@nongnu.org"], ["Kevin Wolf", "kwolf@redhat.com"], ["Alberto Garcia", "berto@igalia.com"], ["qemu-block@nongnu.org", "qemu-block@nongnu.org"], ["Max Reitz", "mreitz@redhat.com"]]', 
+                    'prefixes': '["Qemu-devel", "PATCH"]', 
+                    'is_series_head': True, 
+                    'is_patch': True, 
+                    'patch_num': None }
+        dp = self.get_data_path("0001-simple-patch.mbox.gz")
+        with open(dp, "r") as f:
+            msg = mbox.MboxMessage(f.read()).get_json()
+        self.assertEqual(msg, expected)
 
 if __name__ == '__main__':
     main()
