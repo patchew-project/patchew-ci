@@ -269,3 +269,21 @@ class MboxMessage(object):
         if c == 0:
             return True
         return False
+
+    def get_json(self):
+        """Return the JSON format of the mbox """
+        msg = {}
+        msg['message_id'] = self.get_message_id()
+        msg['in_reply_to'] = self.get_in_reply_to() or ""
+        msg['date'] = self.get_date()
+        msg['subject'] = self.get_subject()
+        msg['stripped_subject'] = self.get_subject(strip_tags=True)
+        msg['version'] = self.get_version()
+        msg['sender'] = self.get_from()
+        msg['recipients'] = self.get_to() + self.get_cc()
+        msg['prefixes']= self.get_prefixes()
+        msg['is_series_head'] = self.is_series_head()
+        msg['is_patch'] = self.is_patch()
+        msg['patch_num'] = self.get_num()[0]
+        msg['mbox'] = self.get_mbox()
+        return msg

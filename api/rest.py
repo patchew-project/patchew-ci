@@ -286,7 +286,6 @@ class MessageSerializer(BaseMessageSerializer):
     class Meta:
         model = Message
         fields = BaseMessageSerializer.Meta.fields + ('mbox', )
-
     def get_mbox(self, obj):
         return obj.get_mbox()
     mbox = SerializerMethodField()
@@ -311,9 +310,8 @@ class StaticTextRenderer(renderers.BaseRenderer):
             return data
 
 class MessagesViewSet(ProjectMessagesViewSetMixin,
-                      BaseMessageViewSet):
+                      BaseMessageViewSet, mixins.CreateModelMixin):
     serializer_class = MessageSerializer
-
     @detail_route(renderer_classes=[StaticTextRenderer])
     def mbox(self, request, *args, **kwargs):
         message = self.get_object()
