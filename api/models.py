@@ -247,6 +247,25 @@ class MessageManager(models.Manager):
             self.delete_subthread(r)
         msg.delete()
 
+    def create(self,project, **validated_data):
+        mbox = validated_data.pop('mbox')
+        m = MboxMessage(mbox)
+        msg = Message(**validated_data)
+        if 'in_reply_to' not in validated_data:
+            msg.in_reply_to = m.get_in_reply_to() or ""
+        msg.stripped_subject = m.get_subject(strip_tags=True)
+        msg.version = m.get_version()
+        msg.prefixes = m.get_prefixes()
+        msg.is_series_head = m.is_series_head()
+        msg.is_patch = m.is_patch()
+        msg.patch_num = m.get_num()[0]
+        msg.project = project
+        msg.mbox = mbox
+        msg.save_mbox(mbox)
+        msg.save()
+        emit_event("MessageAdded", message=msg)
+        return msg
+
     def add_message_from_mbox(self, mbox, user, project_name=None):
 
         def find_message_projects(m):
@@ -321,20 +340,25 @@ class Message(models.Model):
 
     objects = MessageManager()
 
-    def save_mbox(self, mbox):
-        save_blob(mbox, self.message_id)
+    def save_mbox(self, mbox_blob):
+        save_blob(mbox_blob, self.message_id)
 
     def get_mbox_obj(self):
         self.get_mbox()
         return self._mbox_obj
 
     def get_mbox(self):
-        if hasattr(self, "mbox"):
-            return self.mbox
-        self.mbox = load_blob(self.message_id)
-        self._mbox_obj = MboxMessage(self.mbox)
-        return self.mbox
-
+        if hasattr(self, "mbox_blob"):
+            return self.mbox_blob
+        self.mbox_blob = load_blob(self.message_id)
+        self._mbox_obj = MboxMessage(self.mbox_blob)
+        return self.mbox_blob
+    
+    mbox = property(get_mbox)
+    @mbox.setter
+    def mbox(self,value):
+        self.mbox_blob = value
+    
     def get_num(self):
         assert self.is_patch or self.is_series_head
         cur, total = 1, 1
