@@ -78,10 +78,18 @@ class RestTest(PatchewTestCase):
         self.assertEquals(resp.data['mailing_list'], "qemu-block@nongnu.org")
         self.assertEquals(resp.data['parent_project'], self.PROJECT_BASE)
 
+    def test_project_post_no_login(self):
+        data = {
+            'name': 'keycodemapdb',
+        }
+        resp = self.api_client.post(self.REST_BASE + 'projects/', data=data)
+        self.assertEquals(resp.status_code, 403)
+
     def test_project_post_minimal(self):
         data = {
             'name': 'keycodemapdb',
         }
+        self.api_client.login(username=self.user, password=self.password)
         resp = self.api_client.post(self.REST_BASE + 'projects/', data=data)
         self.assertEquals(resp.status_code, 201)
         self.assertEquals(resp.data['resource_uri'].startswith(self.REST_BASE + 'projects/'), True)
@@ -91,6 +99,7 @@ class RestTest(PatchewTestCase):
         self.assertEquals(resp.data['name'], data['name'])
 
     def test_project_post(self):
+        self.api_client.login(username=self.user, password=self.password)
         data = {
             'name': 'keycodemapdb',
             'mailing_list': 'qemu-devel@nongnu.org',
@@ -261,6 +270,7 @@ class RestTest(PatchewTestCase):
         dp = self.get_data_path("0022-another-simple-patch.json.gz")
         with open(dp, "r") as f:
             data = f.read()
+        self.api_client.login(username=self.user, password=self.password)
         resp = self.api_client.post(self.PROJECT_BASE + "messages/", data, content_type='application/json')
         self.assertEqual(resp.status_code, 201)
         resp_get = self.api_client.get(self.PROJECT_BASE + "messages/20171023201055.21973-11-andrew.smirnov@gmail.com/")

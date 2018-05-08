@@ -28,23 +28,46 @@ SEARCH_PARAM = 'q'
 
 # patchew-specific permission classes
 
-class IsAdminUserOrReadOnly(permissions.BasePermission):
+class PatchewPermission(permissions.BasePermission):
     """
-    Allows access only to admin users.
+    Generic code to lookup for permissions based on message and project objects.
+    The nested router's "project_pk" keyword is taken as a hint that the view
+    also has a "project" property that returns a Django object.  has_permission
+    then checks that property too.
     """
-    def has_permission(self, request, view):
-        return request.method in permissions.SAFE_METHODS or \
-               (request.user and request.user.is_superuser)
 
-class IsMaintainerOrReadOnly(permissions.BasePermission):
-    """
-    Allows access only to admin users or maintainers.
-    """
+    allowed_groups = ()
+
+    def is_superuser(self, request):
+        return request.user and request.user.is_superuser
+
+    def has_project_permission(self, request, view, obj):
+        return obj.maintained_by(request.user)
+
+    def has_group_permission(self, request, view):
+        for grp in request.user.groups.all():
+            if grp.name in self.allowed_groups:
+                return True
+        return False
+
+    def has_generic_permission(self, request, view):
+        return (request.method in permissions.SAFE_METHODS) or \
+               self.is_superuser(request) or \
+               self.has_group_permission(request, view)
+
+    def has_permission(self, request, view):
+        return self.has_generic_permission(request, view) or \
+               ('projects_pk' in view.kwargs and \
+                self.has_project_permission(request, view, view.project))
+
     def has_object_permission(self, request, view, obj):
         if isinstance(obj, Message):
             obj = obj.project
-        return request.method in permissions.SAFE_METHODS or \
-               obj.maintained_by(request.user)
+        return self.has_generic_permission(request, view) or \
+               self.has_project_permission(request, view, obj)
+
+class ImportPermission(PatchewPermission):
+    allowed_groups = ('importers',)
 
 # pluggable field for plugin support
 
@@ -85,7 +108,7 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
 class UsersViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('id')
     serializer_class = UserSerializer
-    permission_classes = (IsAdminUserOrReadOnly,)
+    permission_classes = (PatchewPermission,)
 
 # Projects
 
@@ -108,7 +131,7 @@ class ProjectSerializer(serializers.HyperlinkedModelSerializer):
 class ProjectsViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all().order_by('id')
     serializer_class = ProjectSerializer
-    permission_classes = (IsMaintainerOrReadOnly,)
+    permission_classes = (PatchewPermission,)
 
 # Common classes for series and messages
 
@@ -153,7 +176,7 @@ class BaseMessageSerializer(serializers.ModelSerializer):
 class BaseMessageViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     serializer_class = BaseMessageSerializer
     queryset = Message.objects.all()
-    permission_classes = ()
+    permission_classes = (ImportPermission,)
     lookup_field = 'message_id'
     lookup_value_regex = '[^/]+'
 
@@ -162,11 +185,21 @@ class ProjectMessagesViewSetMixin(mixins.RetrieveModelMixin):
     def get_queryset(self):
         return self.queryset.filter(project=self.kwargs['projects_pk'])
 
-    def get_serializer_context(self):
+    @property
+    def project(self):
+        if hasattr(self, '__project'):
+            return self.__project
         try:
-            return {'project': Project.objects.get(id=self.kwargs['projects_pk']), 'request': self.request}
-        except: 
+            self.__project = Project.objects.get(id=self.kwargs['projects_pk'])
+        except:
+            self.__project = None
+        return self.__project
+
+    def get_serializer_context(self):
+        if self.project is None:
             return Http404
+        return {'project': self.project, 'request': self.request}
+
 # Series
 
 class ReplySerializer(BaseMessageSerializer):
@@ -249,7 +282,6 @@ class SeriesViewSet(BaseMessageViewSet):
     queryset = Message.objects.filter(is_series_head=True).order_by('-last_reply_date')
     filter_backends = (PatchewSearchFilter,)
     search_fields = (SEARCH_PARAM,)
-    permission_classes = (IsMaintainerOrReadOnly,)
 
 
 class ProjectSeriesViewSet(ProjectMessagesViewSetMixin,
@@ -362,6 +394,7 @@ class ResultSerializerFull(ResultSerializer):
 class ResultsViewSet(viewsets.ViewSet, generics.GenericAPIView):
     lookup_field = 'name'
     lookup_value_regex = '[^/]+'
+    permission_classes = (PatchewPermission,)
 
     def get_serializer_class(self, *args, **kwargs):
         if self.lookup_field in self.kwargs:
