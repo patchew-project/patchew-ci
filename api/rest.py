@@ -17,7 +17,7 @@ from mod import dispatch_module_hook
 from .models import Project, Message
 from .search import SearchEngine
 from rest_framework import (permissions, serializers, viewsets, filters,
-    mixins, generics, renderers)
+    mixins, generics, renderers, status)
 from rest_framework.decorators import detail_route
 from rest_framework.fields import SerializerMethodField, CharField, JSONField, EmailField
 from rest_framework.relations import HyperlinkedIdentityField
@@ -162,7 +162,6 @@ class AddressSerializer(serializers.Serializer):
         except:
             return [validated_data['address'], validated_data['address']]
 
-
 class BaseMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
@@ -288,7 +287,6 @@ class SeriesViewSet(BaseMessageViewSet):
     filter_backends = (PatchewSearchFilter,)
     search_fields = (SEARCH_PARAM,)
 
-
 class ProjectSeriesViewSet(ProjectMessagesViewSetMixin,
                            SeriesViewSet, mixins.DestroyModelMixin):
     def collect_patches(self, series):
@@ -368,7 +366,7 @@ class MessagePlainTextParser(BaseParser):
         data = stream.read().decode("utf-8")
         return MboxMessage(data).get_json()
 
-class MessagesViewSet(ProjectMessagesViewSetMixin,
+class ProjectMessagesViewSet(ProjectMessagesViewSetMixin,
                       BaseMessageViewSet, mixins.CreateModelMixin):
     serializer_class = MessageSerializer
     parser_classes = (JSONParser, MessagePlainTextParser, )
@@ -387,6 +385,22 @@ class MessagesViewSet(ProjectMessagesViewSetMixin,
         serializer = BaseMessageSerializer(page, many=True,
                                            context=self.get_serializer_context())
         return self.get_paginated_response(serializer.data)
+
+class MessagesViewSet(BaseMessageViewSet):
+    serializer_class = MessageSerializer
+    parser_classes = (JSONParser, MessagePlainTextParser, )
+    
+    def create(self, request, *args, **kwargs):
+        projects = [p for p in Project.objects.all() if p.recognizes(MboxMessage(self.request.data['mbox']))]
+
+        if 'importers' not in self.request.user.groups.all():
+            projects = set(projects) & set([p for p in Project.objects.all() if p.maintained_by(self.request.user)])
+        for project in projects:
+            request.data['project'] = project
+            serializer = MessageSerializer(data=request.data,context={'project': project, 'request': self.request})
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+        return Response("Sucess", status=status.HTTP_201_CREATED)
 
 # Results
 
