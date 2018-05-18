@@ -391,12 +391,16 @@ class ProjectMessagesViewSet(ProjectMessagesViewSetMixin,
 
 class MessagesViewSet(BaseMessageViewSet):
     serializer_class = MessageSerializer
+    permission_classes = (permissions.IsAuthenticated,)
     parser_classes = (JSONParser, MessagePlainTextParser, )
     
     def create(self, request, *args, **kwargs):
-        projects = [p for p in Project.objects.all() if p.recognizes(MboxMessage(self.request.data['mbox']))]
-        if 'importers' not in self.request.user.groups.all():
-            projects = (p for p in projects if p.maintained_by(self.request.user))
+        m = MboxMessage(request.data['mbox'])
+        projects = [p for p in Project.objects.all() if p.recognizes(m)]
+        grps = request.user.groups.all()
+        grps_name = [grp.name for grp in grps]
+        if 'importers' not in grps_name:
+            projects = set(projects) & set([p for p in projects if p.maintained_by(self.request.user)])
         results = []
         for project in projects:
             serializer = self.get_serializer(data=request.data)
