@@ -44,6 +44,33 @@ def load_blob_json(name):
         logging.error('Failed to load blob %s: %s' %(name, e))
         return None
 
+def get_series_to_be_updated(project_name, message_ids):
+    updated_series = []
+    for msgid in message_ids:
+        if msgid.startswith("<") and msgid.endswith(">"):
+            msgid = msgid[1:-1]
+        p = Project.objects.get(name=project_name)
+        mo = Message.objects.filter(project=p, message_id=msgid,
+                                        is_merged=False).first()
+        if not mo:
+            continue
+        mo.is_merged = True
+        mo.save()
+        s = mo.get_series_head()
+        if s:
+            updated_series.append(s)
+    return updated_series
+
+def change_merge_status(series):
+    merged = True
+    for p in series.get_patches():
+        if not p.is_merged:
+            merged = False
+            break
+    if merged:
+        series.is_merged = True
+        series.save()
+
 class Project(models.Model):
     name = models.CharField(max_length=1024, db_index=True, unique=True,
                             help_text="""The name of the project""")
@@ -170,6 +197,21 @@ class Project(models.Model):
 
     def get_subprojects(self):
         return Project.objects.filter(parent_project=self)
+
+    def get_project_head(self):
+        return self.get_property("git.head")
+
+    project_head = property(get_project_head)
+
+    def series_update(self, message_ids):
+        series_to_be_updated = get_series_to_be_updated(self.name, message_ids)
+        ret = len(series_to_be_updated)
+        for s in series_to_be_updated:
+            change_merge_status(s)
+        return ret
+
+    def set_project_head(self, new_head):
+        self.set_property("git.head", new_head)
 
 class ProjectProperty(models.Model):
     project = models.ForeignKey('Project', on_delete=models.CASCADE)
