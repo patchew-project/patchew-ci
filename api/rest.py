@@ -18,7 +18,7 @@ from .models import Project, Message
 from .search import SearchEngine
 from rest_framework import (permissions, serializers, viewsets, filters,
     mixins, generics, renderers, status)
-from rest_framework.decorators import detail_route
+from rest_framework.decorators import detail_route, action
 from rest_framework.fields import SerializerMethodField, CharField, JSONField, EmailField
 from rest_framework.relations import HyperlinkedIdentityField
 from rest_framework.response import Response
@@ -141,6 +141,29 @@ class ProjectsViewSet(viewsets.ModelViewSet):
     serializer_class = ProjectSerializer
     permission_classes = (PatchewPermission,)
 
+    @action(methods=['post','get'], detail=True, permission_classes=[ImportPermission])
+    def update_project_head(self, request, pk=None):
+        """
+        updates the project head and message_id which are matched are merged. 
+        Data input format:
+        {
+            "old_head": "..",
+            "new_head": "..",
+            "message_ids": []
+        }
+        """
+        project = self.get_object()
+        head = project.project_head
+        if request.method == 'POST':
+            old_head = request.data['old_head']
+            message_ids = request.data['message_ids']
+            if old_head_0 and old_head_0 != old_head:
+                raise Exception("wrong old head")
+            ret = project.series_update(message_ids)
+            project.project_head = request.data['new_head']
+            Response({"new_head": project.project_head, "count": ret})
+        else:
+            return Response({'project_head': head})
 # Common classes for series and messages
 
 class HyperlinkedMessageField(HyperlinkedIdentityField):
