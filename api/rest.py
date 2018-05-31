@@ -19,7 +19,7 @@ from .search import SearchEngine
 from rest_framework import (permissions, serializers, viewsets, filters,
     mixins, generics, renderers, status)
 from rest_framework.decorators import detail_route
-from rest_framework.fields import SerializerMethodField, CharField, JSONField, EmailField
+from rest_framework.fields import SerializerMethodField, CharField, JSONField, EmailField, SkipField
 from rest_framework.relations import HyperlinkedIdentityField
 from rest_framework.response import Response
 import rest_framework
@@ -429,8 +429,12 @@ class ResultSerializer(serializers.Serializer):
     resource_uri = HyperlinkedResultField(view_name='results-detail')
     name = CharField()
     status = CharField() # one of 'failure', 'success', 'pending', 'running'
-    log_url = CharField(required=False)
+    log_url = SerializerMethodField(required=False)
     data = JSONField(required=False)
+
+    def get_log_url(self, obj):
+        request = self.context['request']
+        return obj.get_log_url(request)
 
 class ResultSerializerFull(ResultSerializer):
     log = CharField(required=False)
@@ -452,8 +456,7 @@ class ResultsViewSet(viewsets.ViewSet, generics.GenericAPIView):
         except IndexError:
             raise Http404
         results = []
-        dispatch_module_hook("rest_results_hook", request=self.request,
-                             obj=obj, results=results,
+        dispatch_module_hook("rest_results_hook", obj=obj, results=results,
                              detailed=detailed)
         return {x.name: x for x in results}
 
