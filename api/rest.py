@@ -25,6 +25,12 @@ from rest_framework.response import Response
 import rest_framework
 from mbox import addr_db_to_rest, MboxMessage
 from rest_framework.parsers import JSONParser, BaseParser
+from rest_framework.authentication import SessionAuthentication
+
+class CsrfExemptSessionAuthentication(SessionAuthentication):
+
+    def enforce_csrf(self, request):
+        return  # To not perform the csrf check previously happening
 
 SEARCH_PARAM = 'q'
 
@@ -140,7 +146,8 @@ class ProjectsViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all().order_by('id')
     serializer_class = ProjectSerializer
     permission_classes = (PatchewPermission,)
-
+    authentication_classes = (CsrfExemptSessionAuthentication, )
+    
     @action(methods=['post'], detail=True, permission_classes=[ImportPermission])
     def update_project_head(self, request, pk=None):
         """
@@ -414,7 +421,7 @@ class MessagesViewSet(BaseMessageViewSet):
     serializer_class = MessageSerializer
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
     parser_classes = (JSONParser, MessagePlainTextParser, )
-    
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     def create(self, request, *args, **kwargs):
         m = MboxMessage(request.data['mbox'])
         projects = [p for p in Project.objects.all() if p.recognizes(m)]
