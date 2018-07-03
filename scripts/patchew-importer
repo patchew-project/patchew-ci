@@ -101,6 +101,8 @@ offlineimap_import()
         fi
         import "$f" || true
     done
+    # Flush message deletions
+    timeout -k 2000 1800 offlineimap -c $offlineimap_rc
 }
 
 while :; do
