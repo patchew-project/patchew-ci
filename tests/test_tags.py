@@ -22,9 +22,8 @@ class ImportTest(PatchewTestCase):
         self.p.save()
 
     def test_import_one(self):
-        resp = self.apply_and_retrieve('0017-qemu-web-is-not-qemu.mbox.gz',
-                                       self.p.id, '1504250391-6353-1-git-send-email-thuth@redhat.com')
-        self.assertEquals(resp.status_code, 404)
+        self.cli_import("0001-simple-patch.mbox.gz", rc=1)
+        # self.assertEquals(resp.status_code, 404)
 
     def test_rest_single(self):
         resp = self.apply_and_retrieve('0003-single-patch-reviewed.mbox.gz',

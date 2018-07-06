@@ -107,21 +107,21 @@ class UnprivilegedImportTest(ImportTest):
 
     test_import_belong_to_multiple_projects = None
 
-    def check_import_should_fail(self):
-        self.cli_import("0001-simple-patch.mbox.gz", 1)
+    def check_import_status(self, exit_status):
+        self.cli_import("0001-simple-patch.mbox.gz", exit_status)
         a, b = self.check_cli(["search"])
         self.assertNotIn('[Qemu-devel] [PATCH] quorum: Only compile when supported',
                          a.splitlines())
 
     def test_anonymous_import(self):
         self.cli_logout()
-        self.check_import_should_fail()
+        self.check_import_status(exit_status=1)
 
     def test_normal_user_import(self):
         self.cli_logout()
         self.create_user("someuser", "somepass")
         self.cli_login("someuser", "somepass")
-        self.check_import_should_fail()
+        self.check_import_status(exit_status=1)
 
     def test_project_update(self):
         p = Project.objects.all()[0]
