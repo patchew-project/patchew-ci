@@ -31,7 +31,7 @@ class CsrfExemptSessionAuthentication(SessionAuthentication):
 
     def enforce_csrf(self, request):
         return  # To not perform the csrf check previously happening
-        
+
 SEARCH_PARAM = 'q'
 
 # patchew-specific permission classes
@@ -146,6 +146,7 @@ class ProjectsViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all().order_by('id')
     serializer_class = ProjectSerializer
     permission_classes = (PatchewPermission,)
+    authentication_classes = (CsrfExemptSessionAuthentication, )
 
     @action(methods=['post'], detail=True, permission_classes=[ImportPermission])
     def update_project_head(self, request, pk=None):
