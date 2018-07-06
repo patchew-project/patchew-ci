@@ -320,6 +320,8 @@ class SeriesViewSet(BaseMessageViewSet):
 
 class ProjectSeriesViewSet(ProjectMessagesViewSetMixin,
                            SeriesViewSet, mixins.DestroyModelMixin):
+    authentication_classes = (CsrfExemptSessionAuthentication, )
+    
     def collect_patches(self, series):
         if series.is_patch:
             patches = [series]

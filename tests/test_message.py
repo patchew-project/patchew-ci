@@ -10,6 +10,7 @@
 
 import time
 import datetime
+import json
 from tests.patchewtest import PatchewTestCase, main
 
 class ProjectTest(PatchewTestCase):
@@ -53,6 +54,18 @@ class ProjectTest(PatchewTestCase):
         message.date = dt
         asctime = message.get_asctime()
         self.assertEqual(asctime, "Sat Oct 22 9:06:04 2016")
+
+    def test_delete(self):
+        self.cli_login()
+        self.add_project("QEMU", "qemu-devel@nongnu.org")
+        self.cli_import("0002-unusual-cased-tags.mbox.gz")
+        a, b = self.check_cli(["search", "-r", "-o", "subject,properties"])
+        ao = json.loads(a)[0]
+        self.assertEqual(["Fam Zheng", "famz@redhat.com"],
+                         ao["properties"]["reviewers"][0])
+        self.cli_delete("from:Fam")
+        a, b = self.check_cli(["search", "-r", "-o", "subject,properties"])
+        self.assertEqual("", a)
 
 if __name__ == '__main__':
     main()
