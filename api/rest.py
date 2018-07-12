@@ -133,7 +133,7 @@ class ProjectSerializer(serializers.HyperlinkedModelSerializer):
         model = Project
         fields = ('resource_uri', 'name', 'mailing_list', 'prefix_tags', 'url', 'git', \
                   'description', 'display_order', 'logo', 'parent_project', 'messages',
-                  'results', 'series')
+                  'results', 'series', 'properties')
 
     messages = HyperlinkedIdentityField(view_name='messages-list', lookup_field='pk',
                                         lookup_url_kwarg='projects_pk')

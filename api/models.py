@@ -196,6 +196,8 @@ class Project(models.Model):
         emit_event("SetProperty", obj=self, name=prop, value=value,
                    old_value=old_val)
 
+    properties = property(get_properties, set_property)    
+
     def total_series_count(self):
         return Message.objects.series_heads(project=self.name).count()
 
