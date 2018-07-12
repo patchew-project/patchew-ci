@@ -91,6 +91,40 @@ class SubCommand(object):
         else:
             r = None
         return r
+
+    def rest_api_do(self, url_cmd, request_method='get', content_type=None, data=None):
+        logging.debug("API call '%s':" % url_cmd)
+        logging.debug("data:\n%s" % data)
+        cookie = http.cookiejar.MozillaCookieJar(COOKIE_FILENAME)
+        try:
+            cookie.load()
+        except IOError:
+            pass
+        except http.cookiejar.LoadError:
+            print("Error while loading cookie", COOKIE_FILENAME)
+            pass
+        handler = urllib.request.HTTPCookieProcessor(cookie)
+        opener = urllib.request.build_opener(handler)
+        if url_cmd.startswith("http"):
+            url = url_cmd
+        else:
+            url = self.base_url + '/api/v1/' + url_cmd + '/'
+        if data is None:
+            post_data = ""
+        else:
+            post_data = data
+        req = urllib.request.Request(url, data=bytes(post_data, encoding="utf-8"), method=request_method.upper())
+        if content_type is not None:
+            req.add_header('Content-Type', content_type)
+        resp = opener.open(req)
+        cookie.save(ignore_discard=True, ignore_expires=True)
+        respdata = resp.read()
+        logging.debug("Server response:\n%s" % (respdata or "<empty>"))
+        if respdata:
+            r = json.loads(respdata.decode("utf-8"))
+        else:
+            r = None
+        return r
         
     def do(self, args, argv):
         """Do command"""
