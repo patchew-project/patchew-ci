@@ -181,7 +181,21 @@ class DeleteCommand(SubCommand):
         if not argv and not args.all:
             print("Must specify --all to delete all patches")
             return 1
-        self.api_do("delete", terms=argv)
+        series_list = []
+        if len(argv)==0:
+            resp = self.rest_api_do("projects")
+            for project in len(resp['result']):
+                url = project['series']
+                series_resp = self.rest_api_do(url)
+                series_list = series_list + series_resp['results']
+        else:
+            for term in argv:
+                url = str(self.base_url) + "/api/v1/series/?q=" + term
+                series_resp = self.rest_api_do(url)
+            series_list =  series_list + series_resp['results']
+        for series in series_list:
+            url = series['resource_uri']
+            self.rest_api_do(url, request_method='delete')
         return 0
 
 class ImportCommand(SubCommand):

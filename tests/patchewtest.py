@@ -100,6 +100,9 @@ class PatchewTestCase(django.test.LiveServerTestCase):
     def cli_import(self, mbox, rc=0):
         self.check_cli(["import", self.get_data_path(mbox)], rc)
 
+    def cli_delete(self, terms, rc=0):
+        self.check_cli(["delete", terms], rc)
+
     def get_data_path(self, fname):
         r = tempfile.NamedTemporaryFile(dir=RUN_DIR, prefix="test-data-", delete=False)
         d = os.path.join(BASE_DIR, "tests", "data", fname)
