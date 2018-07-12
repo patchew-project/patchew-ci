@@ -91,7 +91,7 @@ class SubCommand(object):
         else:
             r = None
         return r
-
+        
     def do(self, args, argv):
         """Do command"""
         print("Not implemented")
