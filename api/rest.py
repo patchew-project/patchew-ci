@@ -423,6 +423,7 @@ class MessagesViewSet(BaseMessageViewSet):
     serializer_class = MessageSerializer
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
     parser_classes = (JSONParser, MessagePlainTextParser, )
+    authentication_classes = (CsrfExemptSessionAuthentication, )
     
     def create(self, request, *args, **kwargs):
         m = MboxMessage(request.data['mbox'])
