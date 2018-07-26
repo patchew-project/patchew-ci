@@ -67,7 +67,9 @@ class GitModule(PatchewModule):
         # Make sure git is available
         subprocess.check_output(["git", "version"])
         declare_event("ProjectGitUpdate", project="the updated project name")
-        declare_event("SeriesApplied", series="the object of applied series")
+        declare_event("GitResultUpdate", obj="the updated object",
+                      old_status='the old result status',
+                      result="the Git result object")
         register_handler("SeriesComplete", self.on_series_update)
         register_handler("TagsUpdate", self.on_series_update)
 
@@ -273,8 +275,10 @@ class ApplierReportView(APILoginRequiredView):
     def handle(self, request, project, message_id, tag, url, base, repo,
                failed, log):
         p = Project.objects.get(name=project)
-        r = Message.objects.series_heads().get(project=p,
-                                               message_id=message_id).git_result
+        series = Message.objects.series_heads().get(project=p,
+                message_id=message_id)
+        r = series.git_result
+        old_status = r.status
         r.log = log
         data = {}
         if failed:
@@ -292,3 +296,5 @@ class ApplierReportView(APILoginRequiredView):
             r.status = Result.SUCCESS
         r.data = data
         r.save()
+        emit_event("GitResultUpdate", obj=series, old_status=old_status,
+                   result=r)
