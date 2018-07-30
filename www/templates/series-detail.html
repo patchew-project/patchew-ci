@@ -26,9 +26,9 @@
 		    {{ series.age }} ago</span>
   <ul id="series-links">
     <li>
-      <span class="fa fa-download"></span> <a
-        href="/{{ project }}/{{ series.message_id }}/mbox">Download series mbox</a></li>
-    </li>
+      <span class="fa fa-download"></span>Download {% if series.is_complete %}mbox: <a
+        href="/{{ project }}/{{ series.message_id }}/patches.mbox">patches</a>, {% endif %}<a
+        href="/{{ project }}/{{ series.message_id }}/mbox">full thread</a></li>
     {% for op in series.extra_links %}
     <li>
       <span class="fa fa-{% if op.icon %}{{ op.icon }}{% else %}question{% endif %}"></span>

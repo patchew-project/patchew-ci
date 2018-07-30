@@ -10,11 +10,13 @@
 
 from mod import PatchewModule
 from mbox import parse_address
+from django.http import HttpResponse, Http404
 from event import register_handler, emit_event, declare_event
 from api.models import Message
 from api.rest import PluginMethodField
 from patchew.tags import lines_iter
 import re
+import www.views
 
 REV_BY_PREFIX = "Reviewed-by:"
 BASED_ON_PREFIX = "Based-on:"
@@ -26,6 +28,21 @@ tags = Tested-by, Reported-by, Acked-by, Suggested-by
 """
 
 BUILT_IN_TAGS = [REV_BY_PREFIX, BASED_ON_PREFIX]
+
+_instance = None
+
+# This is monkey-patched into www.views
+def _view_series_mbox_patches(request, project, message_id):
+    global _instance
+    s = Message.objects.find_series(message_id, project)
+    if not s:
+        raise Http404("Series not found")
+    if not s.is_complete:
+        raise Http404("Series not complete")
+    mbox = "\n".join(["From %s %s\n" % (x.get_sender_addr(), x.get_asctime()) + \
+                      _instance.get_mbox_with_tags(x) for x in s.get_patches()])
+    return HttpResponse(mbox, content_type="text/plain")
+www.views.view_series_mbox_patches = _view_series_mbox_patches
 
 class SeriesTagsModule(PatchewModule):
     """
@@ -49,6 +66,9 @@ series cover letter, patch mail body and their replies.
     default_config = _default_config
 
     def __init__(self):
+        global _instance
+        assert _instance == None
+        _instance = self
         register_handler("MessageAdded", self.on_message_added)
         declare_event("TagsUpdate", series="message object that is updated")
 
@@ -153,4 +173,29 @@ series cover letter, patch mail body and their replies.
                     "char": "O",
                     "row_class": "obsolete"
                     })
+        message.extra_links.append({"html": mark_safe(html), "icon": "exchange" })
 
+    # FIXME: what happens with base64 messages?
+    def get_mbox_with_tags(self, m):
+        def result_iter():
+            regex = self.get_tag_regex()
+            old_tags = set()
+            lines = lines_iter(m.get_mbox())
+            need_minusminusminus = False
+            for line in lines:
+                if line.startswith('---'):
+                    need_minusminusminus = True
+                    break
+                yield line
+                if regex.match(line):
+                    old_tags.add(line)
+
+            # If no --- line, tags go at the end as there's no better place
+            for tag in m.get_property("tags", []):
+                if not tag in old_tags:
+                    yield tag
+            if need_minusminusminus:
+                yield line
+            yield from lines
+
+        return '\n'.join(result_iter())

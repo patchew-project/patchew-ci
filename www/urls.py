@@ -35,5 +35,6 @@ urlpatterns += [
         url(r"^(?P<project>[^/]*)/(?P<message_id>[^/]*)/$", views.view_series_detail, name="series_detail"),
         url(r"^(?P<project>[^/]*)/(?P<thread_id>[^/]*)/(?P<message_id>[^/]*)/$", views.view_series_message, name="series_message"),
         url(r"^(?P<project>[^/]*)/(?P<message_id>[^/]*)/mbox$", views.view_series_mbox),
+        url(r"^(?P<project>[^/]*)/(?P<message_id>[^/]*)/patches.mbox$", views.view_series_mbox_patches),
         url(r"^$", views.view_project_list, name="project_list"),
         ]

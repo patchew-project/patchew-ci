@@ -245,6 +245,17 @@ def view_series_mbox(request, project, message_id):
                       x.get_mbox() for x in r])
     return HttpResponse(mbox, content_type="text/plain")
 
+def view_series_mbox_patches(request, project, message_id):
+    s = api.models.Message.objects.find_series(message_id, project)
+    if not s:
+        raise Http404("Series not found")
+    if not s.is_complete:
+        raise Http404("Series not complete")
+    mbox = "\n".join(["From %s %s\n" % (x.get_sender_addr(), x.get_asctime()) + \
+                      x.get_mbox(x) for x in s.get_patches()])
+    return HttpResponse(mbox, content_type="text/plain")
+
+
 def view_series_detail(request, project, message_id):
     s = api.models.Message.objects.find_series(message_id, project)
     if not s:
