@@ -13,6 +13,8 @@ from mbox import parse_address
 from event import register_handler, emit_event, declare_event
 from api.models import Message
 from api.rest import PluginMethodField
+from patchew.tags import lines_iter
+import re
 
 REV_BY_PREFIX = "Reviewed-by:"
 BASED_ON_PREFIX = "Based-on:"
@@ -54,6 +56,11 @@ series cover letter, patch mail body and their replies.
     def get_tag_prefixes(self):
         tagsconfig = self.get_config("default", "tags", default="")
         return set([x.strip() for x in tagsconfig.split(",") if x.strip()] + BUILT_IN_TAGS)
+
+    def get_tag_regex(self):
+        tags = self.get_tag_prefixes()
+        tags_re = '|'.join(map(re.escape, tags))
+        return re.compile('^(?i:%s):' % tags_re)
 
     def update_tags(self, s):
         old = s.get_property("tags", [])
@@ -105,10 +112,10 @@ series cover letter, patch mail body and their replies.
 
     def parse_message_tags(self, m):
         r = []
+        regex = self.get_tag_regex()
         for l in m.get_body().splitlines():
-            for p in self.get_tag_prefixes():
-                if l.lower().startswith(p.lower()):
-                    r.append(l)
+            if regex.match(l):
+                r.append(l)
         return r
 
     def look_for_tags(self, m):
