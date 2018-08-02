@@ -48,7 +48,8 @@ series cover letter, patch mail body and their replies.
 
     def __init__(self):
         register_handler("MessageAdded", self.on_message_added)
-        declare_event("TagsUpdate", series="message object that is updated")
+        declare_event("TagsUpdate", series="message object that is updated",
+                      old="old tag set", new="new tag set")
 
         # XXX: get this list through module config?
     def get_tag_prefixes(self):
@@ -58,9 +59,10 @@ series cover letter, patch mail body and their replies.
     def update_tags(self, s):
         old = s.get_property("tags", [])
         new = self.look_for_tags(s)
-        if set(old) != set(new):
-            s.set_property("tags", list(set(new)))
-            return True
+        old, new = set(old), set(new)
+        if old != new:
+            s.set_property("tags", list(new))
+        return old, new
 
     def on_message_added(self, event, message):
         series = message.get_series_head()
@@ -75,7 +77,8 @@ series cover letter, patch mail body and their replies.
             elif newer_than(series, m):
                 m.set_property("obsoleted-by", series.message_id)
 
-        updated = self.update_tags(series)
+        old, new = self.update_tags(series)
+        updated = old != new
 
         for p in series.get_patches():
             updated = updated or self.update_tags(p)
@@ -101,7 +104,7 @@ series cover letter, patch mail body and their replies.
             series.set_property("reviewed", True)
             series.set_property("reviewers", list(reviewers))
         if updated:
-            emit_event("TagsUpdate", series=series)
+            emit_event("TagsUpdate", series=series, old=old, new=new)
 
     def parse_message_tags(self, m):
         r = []
