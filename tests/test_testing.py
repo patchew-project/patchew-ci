@@ -335,6 +335,67 @@ class TestingResetTest(PatchewTestCase):
                                   "testing.c": Result.PENDING})
         self.assertFalse(msg.get_property("testing.done"))
 
+class TestingTagUpdate(PatchewTestCase):
+
+    def setUp(self):
+        self.create_superuser()
+
+        self.repo = self.create_git_repo("repo")
+
+        self.p1 = self.add_project("QEMU", "qemu-devel@nongnu.org")
+        create_test(self.p1, "a")
+
+    def do_test(self, has_work=True):
+
+        if has_work:
+            out, err = self.check_cli(["tester", "-p", "QEMU", "--no-wait"])
+            self.assertIn("Project: QEMU\n", out)
+
+        out, err = self.check_cli(["tester", "-p", "QEMU", "--no-wait"])
+        self.assertIn("Nothing to test", out)
+
+    def test_reviewed_by_update(self):
+        self.cli_login()
+
+        self.cli_import('0013-foo-patch.mbox.gz')
+        self.do_apply()
+        self.do_test()
+
+        self.cli_import('0025-foo-patch-add-reviewed-by.mbox.gz')
+        self.do_apply()
+        self.do_test(has_work=False)
+
+        msg = Message.objects.series_heads().get()
+        self.assertIn("Reviewed-by: Some Body <some@body.com>",
+                      msg.get_property("tags"))
+        self.assertTrue(msg.get_property("testing.done"))
+
+        self.cli_logout()
+        self.assertTrue(msg.get_property("testing.done"))
+
+    def test_based_on_update(self):
+        self.cli_login()
+
+        self.cli_import('0013-foo-patch.mbox.gz')
+        self.do_apply()
+        self.cli_import('0014-bar-patch.mbox.gz')
+        self.do_apply()
+        self.do_test()
+
+        self.cli_import('0026-new-file.mbox.gz')
+        self.do_apply()
+        self.do_test()
+
+        self.cli_import('0027-new-file-based-on-reply.mbox.gz')
+        self.do_apply()
+        self.do_test()
+        self.cli_logout()
+
+        msg = Message.objects.series_heads().get(message_id='add-new-file@redhat.com')
+        self.assertTrue(msg.get_property("testing.done"))
+        self.assertIn("Based-on: <20160628014747.20971-1-famz@redhat.com>",
+                      msg.get_property("tags"))
+
 # do not run tests on the abstract class
 del TestingTestCase
 
