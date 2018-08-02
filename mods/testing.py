@@ -107,13 +107,23 @@ class TestingModule(PatchewModule):
                       is_timeout="whether the test has timeout")
         register_handler("SetProperty", self.on_set_property)
         register_handler("ResultUpdate", self.on_result_update)
+        register_handler("TagsUpdate", self.on_tags_update)
+
+    def on_tags_update(self, evt, series, old, new):
+        def find_tag(tags, t):
+            for i in tags:
+                if i.lower().startswith(t.lower()):
+                    return i
+        old_base = find_tag(old, "Based-on:")
+        new_base = find_tag(new, "Based-on:")
+        if old_base != new_base:
+            self.clear_and_start_testing(series)
 
     def on_set_property(self, evt, obj, name, value, old_value):
-        if ((isinstance(obj, Message) and obj.is_series_head) \
-            or isinstance(obj, Project)) \
-            and name in ("git.tag", "git.repo") \
+        if name in ("git.tag", "git.repo") \
             and old_value is None \
             and obj.get_property("git.tag") and obj.get_property("git.repo"):
+                assert isinstance(obj, Project)
                 self.clear_and_start_testing(obj)
         elif isinstance(obj, Project) and name == "git.head" \
             and old_value != value:
@@ -130,7 +140,7 @@ class TestingModule(PatchewModule):
             and old_status != Result.SUCCESS \
             and result.status == result.SUCCESS \
             and result.data.get("tag") and result.data.get("repo"):
-                self.clear_and_start_testing(obj)
+                self.recalc_pending_tests(obj)
 
     def get_testing_results(self, obj, *args, **kwargs):
         return obj.results.filter(name__startswith='testing.', *args, **kwargs)
