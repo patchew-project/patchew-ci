@@ -48,9 +48,6 @@ class PatchewPermission(permissions.BasePermission):
     def has_project_permission(self, request, view, obj):
         return obj.maintained_by(request.user)
 
-    def has_message_permission(self, request, view, obj):
-        return obj.project.maintained_by(request.user)
-
     def has_group_permission(self, request, view):
         for grp in request.user.groups.all():
             if grp.name in self.allowed_groups:
@@ -68,11 +65,12 @@ class PatchewPermission(permissions.BasePermission):
                 self.has_project_permission(request, view, view.project))
 
     def has_object_permission(self, request, view, obj):
+        # For non-project objects, has_project_permission has been evaluated
+        # already in has_permission, based on the primary key included in the
+        # URL.
         return self.has_generic_permission(request, view) or \
-               (isinstance(obj, Message) and \
-                self.has_message_permission(request, view, obj)) or \
-               (isinstance(obj, Project) and \
-                self.has_project_permission(request, view, obj))
+               not isinstance(obj, Project) or \
+               self.has_project_permission(request, view, obj)
 
 class ImportPermission(PatchewPermission):
     allowed_groups = ('importers',)
