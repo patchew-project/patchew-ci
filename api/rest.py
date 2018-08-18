@@ -102,7 +102,7 @@ def reverse_detail(obj, request):
                                               request=request,
                                               kwargs={"projects_pk": m.project.id,
                                                       "series_message_id": m.message_id,
-                                                      "name": obj.name}),
+                                                      "name": obj.name})
     raise Error("unhandled object type")
 
 # pluggable field for plugin support
