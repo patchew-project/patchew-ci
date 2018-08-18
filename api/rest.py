@@ -25,6 +25,9 @@ from rest_framework.response import Response
 import rest_framework
 from mbox import addr_db_to_rest, MboxMessage
 from rest_framework.parsers import JSONParser, BaseParser
+from rest_framework.exceptions import ValidationError
+import re
+import mod
 
 SEARCH_PARAM = 'q'
 
@@ -54,6 +57,12 @@ class PatchewPermission(permissions.BasePermission):
                 return True
         return False
 
+    def has_result_group_permission(self, request, view, result_renderer):
+        for grp in request.user.groups.all():
+            if grp.name in result_renderer.allowed_groups:
+                return True
+        return False
+
     def has_generic_permission(self, request, view):
         return (request.method in permissions.SAFE_METHODS) or \
                self.is_superuser(request) or \
@@ -62,7 +71,9 @@ class PatchewPermission(permissions.BasePermission):
     def has_permission(self, request, view):
         return self.has_generic_permission(request, view) or \
                (hasattr(view, 'project') and view.project and \
-                self.has_project_permission(request, view, view.project))
+                self.has_project_permission(request, view, view.project)) or \
+               (hasattr(view, 'result_renderer') and view.result_renderer and \
+                self.has_result_group_permission(request, view, view.result_renderer))
 
     def has_object_permission(self, request, view, obj):
         # For non-project objects, has_project_permission has been evaluated
@@ -478,6 +489,7 @@ class ResultSerializer(serializers.ModelSerializer):
     class Meta:
         model = Result
         fields = ('resource_uri', 'name', 'status', 'last_update', 'data', 'log_url')
+        read_only_fields = ('name', 'last_update', )
 
     resource_uri = HyperlinkedResultField(view_name='results-detail')
     log_url = SerializerMethodField(required=False)
@@ -487,21 +499,54 @@ class ResultSerializer(serializers.ModelSerializer):
         request = self.context['request']
         return obj.get_log_url(request)
 
+    def validate(self, data):
+        data_serializer_class = self.context['renderer'].result_data_serializer_class
+        data_serializer_class(data=data['data'],
+                              context=self.context).is_valid(raise_exception=True)
+        return data
+
 class ResultSerializerFull(ResultSerializer):
     class Meta:
         model = Result
         fields = ResultSerializer.Meta.fields + ('log',)
+        read_only_fields = ResultSerializer.Meta.read_only_fields
 
     # The database field is log_xz, so this is needed here
     log = CharField(required=False)
 
 class ResultsViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
-                         viewsets.GenericViewSet):
+                     mixins.UpdateModelMixin, viewsets.GenericViewSet):
     lookup_field = 'name'
     lookup_value_regex = '[^/]+'
     filter_backends = (filters.OrderingFilter,)
     ordering_fields = ('name',)
     ordering = ('name',)
+    permission_classes = (PatchewPermission, )
+
+    # for permissions
+    @property
+    def project(self):
+        if hasattr(self, '__project'):
+            return self.__project
+        try:
+            self.__project = Project.objects.get(id=self.kwargs['projects_pk'])
+        except:
+            self.__project = None
+        return self.__project
+
+    @property
+    def result_renderer(self):
+        try:
+            found = re.match("^[^.]*", self.kwargs['name'])
+        except:
+            return None
+        return mod.get_module(found.group(0)) if found else None
+
+    def get_serializer_context(self):
+        context = super(ResultsViewSet, self).get_serializer_context()
+        if 'name' in self.kwargs:
+            context['renderer'] = self.result_renderer
+        return context
 
     def get_serializer_class(self, *args, **kwargs):
         if self.lookup_field in self.kwargs:
