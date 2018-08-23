@@ -8,7 +8,7 @@
 # This work is licensed under the MIT License.  Please see the LICENSE file or
 # http://opensource.org/licenses/MIT.
 
-from .models import Message
+from .models import Message, Result
 from django.db.models import Q
 
 class InvalidSearchTerm(Exception):
@@ -86,6 +86,21 @@ Example:
 Compare the address info of message. Example:
 
     from:alice to:bob
+
+---
+
+### Search by result
+
+Syntax:
+
+ - pending:NAME, success:NAME, failure:NAME, running:NAME
+
+where NAME can be e.g. "git", "testing", "testing.TEST-NAME"
+
+Example:
+
+    success:git
+    failure:testing.FreeBSD
 
 ---
 
@@ -184,6 +199,9 @@ Search text keyword in the email message. Example:
             return Q(is_merged=True)
         return None
 
+    def _make_filter_result(self, term, **kwargs):
+        return Q(results__name=term, **kwargs) | Q(results__name__startswith=term+'.', **kwargs)
+
     def _make_filter(self, term):
         if term.startswith("age:"):
             cond = term[term.find(":") + 1:]
@@ -214,6 +232,14 @@ Search text keyword in the email message. Example:
                 return Q(last_comment_date__isnull=False)
             else:
                 return Q(properties__name=cond)
+        elif term.startswith("failure:"):
+            return self._make_filter_result(term[8:], results__status=Result.FAILURE)
+        elif term.startswith("success:"):
+            return self._make_filter_result(term[8:], results__status=Result.SUCCESS)
+        elif term.startswith("pending:"):
+            return self._make_filter_result(term[8:], results__status=Result.PENDING)
+        elif term.startswith("running:"):
+            return self._make_filter_result(term[8:], results__status=Result.RUNNING)
         elif term.startswith("project:"):
             cond = term[term.find(":") + 1:]
             self._projects.add(cond)
