@@ -508,6 +508,6 @@ class UntestView(APILoginRequiredView):
 
     def handle(self, request, terms):
         se = SearchEngine()
-        q = se.search_series(*terms)
+        q = se.search_series(user=request.user, *terms)
         for s in q:
             _instance.clear_and_start_testing(s)
