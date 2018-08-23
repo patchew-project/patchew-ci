@@ -123,100 +123,7 @@ Search text keyword in the email message. Example:
     regression
 
 """
-    def _process_term(self, query, term, neg=False):
-        """ Return a Q object that will be applied to the query """
-        def as_keywords(t):
-            self._last_keywords.append(t)
-            return Q(subject__icontains=t)
-
-        if term.startswith("!"):
-            return self._process_term(query, term[1:], not neg)
-        if term.startswith("age:"):
-            cond = term[term.find(":") + 1:]
-            q = self._process_age_term(query, cond)
-        elif term[0] in "<>" and len(term) > 1:
-            q = self._process_age_term(query, term)
-        elif term.startswith("from:"):
-            cond = term[term.find(":") + 1:]
-            q = Q(sender__icontains=cond)
-        elif term.startswith("to:"):
-            cond = term[term.find(":") + 1:]
-            q = Q(recipients__icontains=cond)
-        elif term.startswith("subject:"):
-            cond = term[term.find(":") + 1:]
-            q = Q(subject__icontains=cond)
-        elif term.startswith("id:"):
-            cond = term[term.find(":") + 1:]
-            if cond[0] == "<" and cond[-1] == ">":
-                cond = cond[1:-1]
-            q = Q(message_id=cond)
-        elif term.startswith("is:") or term.startswith("not:") or term[0] in "+-":
-            if term[0] in "+-":
-                cond = term[1:]
-                lneg = term[0] == "-"
-            else:
-                cond = term[term.find(":") + 1:]
-                lneg = term.startswith("not:")
-            if cond == "complete":
-                q = Q(is_complete=True)
-            elif cond == "pull":
-                q = Q(subject__contains='[PULL') | Q(subject__contains='[GIT PULL')
-            elif cond == "reviewed":
-                q = Q(properties__name="reviewed",
-                      properties__value="true")
-            elif cond in ("obsoleted", "old"):
-                q = Q(properties__name="obsoleted-by",
-                      properties__value__isnull=False) & \
-                    ~Q(properties__name="obsoleted-by",
-                      properties__value__iexact='')
-            elif cond == "applied":
-                q = Q(properties__name="git.tag",
-                      properties__value__isnull=False) & \
-                    ~Q(properties__name="git.tag",
-                      properties__value__iexact='')
-            elif cond == "tested":
-                q = Q(properties__name="testing.done",
-                      properties__value="true")
-            elif cond == "merged":
-                q = Q(is_merged=True)
-            else:
-                q = as_keywords(term)
-            if lneg:
-                neg = not neg
-        elif term.startswith("has:"):
-            cond = term[term.find(":") + 1:]
-            if cond == "replies":
-                q = Q(last_comment_date__isnull=False)
-            else:
-                q = Q(properties__name=cond)
-        elif term.startswith("project:"):
-            cond = term[term.find(":") + 1:]
-            self._projects.add(cond)
-            q = Q(project__name=cond) | Q(project__parent_project__name=cond)
-        else:
-            # Keyword in subject is the default
-            q = as_keywords(term)
-        if neg:
-            return query.exclude(pk__in=query.filter(q))
-        else:
-            return query.filter(q)
-
-    def last_keywords(self):
-        return getattr(self, "_last_keywords", [])
-
-    def project(self):
-        return next(iter(self._projects)) if len(self._projects) == 1 else None
-
-    def search_series(self, *terms, queryset=None):
-        self._last_keywords = []
-        self._projects = set()
-        if queryset is None:
-            queryset = Message.objects.series_heads()
-        for t in terms:
-            queryset = self._process_term(queryset, t)
-        return queryset
-
-    def _process_age_term(self, query, cond):
+    def _make_filter_age(self, cond):
         import datetime
         def human_to_seconds(n, unit):
             if unit == "d":
@@ -247,3 +154,98 @@ Search text keyword in the email message. Example:
         else:
             q = Q(date__lte=p)
         return q
+
+    def _make_filter_keywords(self, t):
+        self._last_keywords.append(t)
+        return Q(subject__icontains=t)
+
+    def _make_filter_is(self, cond):
+        if cond == "complete":
+            return Q(is_complete=True)
+        elif cond == "pull":
+            return Q(subject__contains='[PULL') | Q(subject__contains='[GIT PULL')
+        elif cond == "reviewed":
+            return Q(properties__name="reviewed",
+                    properties__value="true")
+        elif cond in ("obsoleted", "old"):
+            return Q(properties__name="obsoleted-by",
+                  properties__value__isnull=False) & \
+                ~Q(properties__name="obsoleted-by",
+                  properties__value__iexact='')
+        elif cond == "applied":
+            return Q(properties__name="git.tag",
+                    properties__value__isnull=False) & \
+                ~Q(properties__name="git.tag",
+                    properties__value__iexact='')
+        elif cond == "tested":
+            return Q(properties__name="testing.done",
+                     properties__value="true")
+        elif cond == "merged":
+            return Q(is_merged=True)
+        return self._make_filter_keywords(self, term)
+
+    def _process_term(self, query, term, neg=False):
+        """ Return a Q object that will be applied to the query """
+        if term.startswith("!"):
+            return self._process_term(query, term[1:], not neg)
+        if term.startswith("age:"):
+            cond = term[term.find(":") + 1:]
+            q = self._make_filter_age(cond)
+        elif term[0] in "<>" and len(term) > 1:
+            q = self._make_filter_age(term)
+        elif term.startswith("from:"):
+            cond = term[term.find(":") + 1:]
+            q = Q(sender__icontains=cond)
+        elif term.startswith("to:"):
+            cond = term[term.find(":") + 1:]
+            q = Q(recipients__icontains=cond)
+        elif term.startswith("subject:"):
+            cond = term[term.find(":") + 1:]
+            q = Q(subject__icontains=cond)
+        elif term.startswith("id:"):
+            cond = term[term.find(":") + 1:]
+            if cond[0] == "<" and cond[-1] == ">":
+                cond = cond[1:-1]
+            q = Q(message_id=cond)
+        elif term.startswith("is:") or term.startswith("not:") or term[0] in "+-":
+            if term[0] in "+-":
+                cond = term[1:]
+                lneg = term[0] == "-"
+            else:
+                cond = term[term.find(":") + 1:]
+                lneg = term.startswith("not:")
+            q = self._make_filter_is(cond)
+            if lneg:
+                neg = not neg
+        elif term.startswith("has:"):
+            cond = term[term.find(":") + 1:]
+            if cond == "replies":
+                q = Q(last_comment_date__isnull=False)
+            else:
+                q = Q(properties__name=cond)
+        elif term.startswith("project:"):
+            cond = term[term.find(":") + 1:]
+            self._projects.add(cond)
+            q = Q(project__name=cond) | Q(project__parent_project__name=cond)
+        else:
+            # Keyword in subject is the default
+            q = self._make_filter_keywords(term)
+        if neg:
+            return query.exclude(pk__in=query.filter(q))
+        else:
+            return query.filter(q)
+
+    def last_keywords(self):
+        return getattr(self, "_last_keywords", [])
+
+    def project(self):
+        return next(iter(self._projects)) if len(self._projects) == 1 else None
+
+    def search_series(self, *terms, queryset=None):
+        self._last_keywords = []
+        self._projects = set()
+        if queryset is None:
+            queryset = Message.objects.series_heads()
+        for t in terms:
+            queryset = self._process_term(queryset, t)
+        return queryset
