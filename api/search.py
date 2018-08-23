@@ -104,6 +104,18 @@ Example:
 
 ---
 
+### Search by review state
+
+Syntax:
+
+ - accept:USERNAME or ack:USERNAME - the series was marked as accepted by the user
+ - reject:USERNAME or nack:USERNAME - the series was marked as rejected by the user
+ - review:USERNAME - the series was marked as accepted or rejected by the user
+
+USERNAME can be "me" to identify the current user
+
+---
+
 ### Reverse condition
 
  - Syntax: !TERM
@@ -202,6 +214,12 @@ Search text keyword in the email message. Example:
     def _make_filter_result(self, term, **kwargs):
         return Q(results__name=term, **kwargs) | Q(results__name__startswith=term+'.', **kwargs)
 
+    def _make_filter_review(self, username, user, **kwargs):
+        if username == "me":
+            return Q(review__user=user, **kwargs)
+        else:
+            return Q(review__user__username=username, **kwargs)
+
     def _make_filter(self, term, user):
         if term.startswith("age:"):
             cond = term[term.find(":") + 1:]
@@ -240,6 +258,16 @@ Search text keyword in the email message. Example:
             return self._make_filter_result(term[8:], results__status=Result.PENDING)
         elif term.startswith("running:"):
             return self._make_filter_result(term[8:], results__status=Result.RUNNING)
+            return self._make_filter_result(cond[8:], results__status=Result.RUNNING)
+        elif term.startswith("ack:") or term.startswith("accept:") or term.startswith("accepted:"):
+            username = term[term.find(":") + 1:]
+            return self._make_filter_review(username, user, review__accept=True)
+        elif term.startswith("nack:") or term.startswith("reject:") or term.startswith("rejected:"):
+            username = term[term.find(":") + 1:]
+            return self._make_filter_review(username, user, review__accept=False)
+        elif term.startswith("review:") or term.startswith("reviewed:"):
+            username = term[term.find(":") + 1:]
+            return self._make_filter_review(username, user)
         elif term.startswith("project:"):
             cond = term[term.find(":") + 1:]
             self._projects.add(cond)
