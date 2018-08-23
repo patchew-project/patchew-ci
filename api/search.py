@@ -182,54 +182,58 @@ Search text keyword in the email message. Example:
                      properties__value="true")
         elif cond == "merged":
             return Q(is_merged=True)
-        return self._make_filter_keywords(self, term)
+        return None
 
-    def _process_term(self, query, term, neg=False):
-        """ Return a Q object that will be applied to the query """
-        if term.startswith("!"):
-            return self._process_term(query, term[1:], not neg)
+    def _make_filter(self, term):
         if term.startswith("age:"):
             cond = term[term.find(":") + 1:]
-            q = self._make_filter_age(cond)
+            return self._make_filter_age(cond)
         elif term[0] in "<>" and len(term) > 1:
-            q = self._make_filter_age(term)
+            return self._make_filter_age(term)
         elif term.startswith("from:"):
             cond = term[term.find(":") + 1:]
-            q = Q(sender__icontains=cond)
+            return Q(sender__icontains=cond)
         elif term.startswith("to:"):
             cond = term[term.find(":") + 1:]
-            q = Q(recipients__icontains=cond)
+            return Q(recipients__icontains=cond)
         elif term.startswith("subject:"):
             cond = term[term.find(":") + 1:]
-            q = Q(subject__icontains=cond)
+            return Q(subject__icontains=cond)
         elif term.startswith("id:"):
             cond = term[term.find(":") + 1:]
             if cond[0] == "<" and cond[-1] == ">":
                 cond = cond[1:-1]
-            q = Q(message_id=cond)
-        elif term.startswith("is:") or term.startswith("not:") or term[0] in "+-":
-            if term[0] in "+-":
-                cond = term[1:]
-                lneg = term[0] == "-"
-            else:
-                cond = term[term.find(":") + 1:]
-                lneg = term.startswith("not:")
-            q = self._make_filter_is(cond)
-            if lneg:
-                neg = not neg
+            return Q(message_id=cond)
+        elif term.startswith("is:"):
+            return self._make_filter_is(term[3:]) or self._make_filter_keywords(term)
+        elif term.startswith("not:"):
+            return ~self._make_filter_is(term[4:]) or self._make_filter_keywords(term)
         elif term.startswith("has:"):
             cond = term[term.find(":") + 1:]
             if cond == "replies":
-                q = Q(last_comment_date__isnull=False)
+                return Q(last_comment_date__isnull=False)
             else:
-                q = Q(properties__name=cond)
+                return Q(properties__name=cond)
         elif term.startswith("project:"):
             cond = term[term.find(":") + 1:]
             self._projects.add(cond)
-            q = Q(project__name=cond) | Q(project__parent_project__name=cond)
+            return Q(project__name=cond) | Q(project__parent_project__name=cond)
+
+        # Keyword in subject is the default
+        return self._make_filter_keywords(term)
+
+    def _process_term(self, query, term, neg=False):
+        """ Return a Q object that will be applied to the query """
+        is_plusminus = False
+        if term[0] in "+-!":
+            term = term[1:]
+            neg = neg ^ (term[0] != "+")
+            is_plusminus = (term[0] != "!")
+
+        if is_plusminus and ":" not in term:
+            q = self._make_filter_is(term) or self._make_filter_keywords(term)
         else:
-            # Keyword in subject is the default
-            q = self._make_filter_keywords(term)
+            q = self._make_filter(term)
         if neg:
             return query.exclude(pk__in=query.filter(q))
         else:
