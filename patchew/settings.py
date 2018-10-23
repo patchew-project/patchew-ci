@@ -128,9 +128,8 @@ BLOB_DIR = os.path.join(DATA_DIR, "blob")
 if not os.path.isdir(BLOB_DIR):
     os.mkdir(BLOB_DIR)
 
-if DEBUG:
-    INSTALLED_APPS += ['debug_toolbar']
-    MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
+INSTALLED_APPS += ['debug_toolbar']
+MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
 
 MEDIA_ROOT = os.path.join(DATA_DIR, "media")
 MEDIA_URL = "/media/"
@@ -220,3 +219,10 @@ if not DEBUG:
             },
         },
     }
+
+def debug_toolbar_check(request):
+    return request.user.is_superuser
+
+DEBUG_TOOLBAR_CONFIG = {
+    'SHOW_TOOLBAR_CALLBACK': debug_toolbar_check,
+}
