@@ -91,7 +91,7 @@ class ImportTest(PatchewTestCase):
         self.assertTrue(s.project.name, sp.name)
 
         self.cli_import("0020-libvirt.mbox.gz")
-        subj2 = subj + '\n[libvirt]  [PATCH v2] vcpupin: add clear feature'
+        subj2 = '[libvirt]  [PATCH v2] vcpupin: add clear feature\n' + subj
         self.check_cli(["search", "project:Libvirt"], stdout=subj2)
         self.check_cli(["search", "project:Libvirt-python"], stdout=subj)
 
