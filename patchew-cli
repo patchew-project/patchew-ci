@@ -538,8 +538,6 @@ class TesterCommand(SubCommand):
                 if rc != None:
                     break
                 time.sleep(0.1)
-            logf.write("=== OUTPUT END ===\n")
-            logf.write("\n")
             if rc == None:
                 try:
                     tp.terminate()
@@ -550,8 +548,11 @@ class TesterCommand(SubCommand):
                     tp.wait()
                 except Exception as e:
                     traceback.print_exc(file=logf)
-                logf.write("Abort: command timeout (>%d seconds)" % timeout)
                 is_timeout = True
+            logf.write("=== OUTPUT END ===\n")
+            logf.write("\n")
+            if is_timeout:
+                logf.write("Abort: command timeout (>%d seconds)" % timeout)
             else:
                 logf.write("Test command exited with code: %d" % rc)
             logf.flush()
