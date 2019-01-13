@@ -527,7 +527,7 @@ class TesterCommand(SubCommand):
         is_timeout = False
         try:
             clone = os.path.join(wd, "src")
-            git_clone_repo(clone, r["repo"], r["head"], logf, True)
+            git_clone_repo(clone, r["repo"], r["head"], logf, recursive=True)
             base = r["base"]
             if base:
                 subprocess.check_call(["git", "branch", "base", base],
