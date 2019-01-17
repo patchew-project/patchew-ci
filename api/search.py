@@ -162,6 +162,7 @@ Syntax:
  - accept:USERNAME or ack:USERNAME - the series was marked as accepted by the user
  - reject:USERNAME or nack:USERNAME - the series was marked as reject by the user
  - review:USERNAME - the series was marked as accepted or rejected by the user
+ - watch:USERNAME - the series is in the user's watched queue
 
 USERNAME can be "me" to identify the current user
 
