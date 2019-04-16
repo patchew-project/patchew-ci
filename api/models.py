@@ -692,7 +692,9 @@ class Message(models.Model):
             r"1 file changed",
             r"(create|delete) mode [0-7]+",
             r"mode change [0-7]+",
-            r"rename ",
+            r"rename .*\([0-9]+%\)$",
+            r"copy .*\([0-9]+%\)$",
+            r"rewrite .*\([0-9]+%\)$",
         ]
         ret = []
         for l in self.get_body().splitlines():
