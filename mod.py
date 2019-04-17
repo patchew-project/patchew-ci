@@ -152,6 +152,40 @@ class PatchewModule(object):
         tmpl += self._render_template(request, project, TMPL_END)
         return tmpl
 
+    def _get_map_scm(self, project, prop_name, scm):
+        prefix = prop_name + "."
+        result = {}
+        for p, v in project.get_properties().items():
+            if not p.startswith(prefix):
+                continue
+            name = p[len(prefix):]
+            name = name[:name.rfind(".")]
+            if name in result:
+                continue
+            assert scm.item.name == '{name}'
+            value = self._get_one(project, prefix + name, scm.item)
+            if isinstance(value, dict):
+                value["name"] = name
+            result[name] = value
+        return result
+
+    def _get_one(self, project, prop_name, scm):
+        if type(scm) == MapSchema:
+            return self._get_map_scm(project, prop_name, scm)
+        elif type(scm) == ArraySchema:
+            prefix = prop_name + "."
+            result = {}
+            for i in scm.members:
+                assert i.name != '{name}'
+                result[i.name] = self._get_one(project, prefix + i.name, i)
+            return result
+        else:
+            return project.get_property(prop_name)
+
+    def get_module_properties(self, project):
+        scm = self.project_property_schema
+        return self._get_one(project, scm.name, scm)
+
 _loaded_modules = {}
 
 def _module_init_config(cls):

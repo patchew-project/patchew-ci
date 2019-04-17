@@ -188,19 +188,7 @@ Email information is configured in "INI" style:
         return "<%s@patchew.org>" % uuid.uuid1()
 
     def get_notifications(self, project):
-        ret = {}
-        for k, v in project.get_properties().items():
-            if not k.startswith("email.notifications."):
-                continue
-            tn = k[len("email.notifications."):]
-            if "." not in tn:
-                continue
-            an = tn[tn.find(".") + 1:]
-            tn = tn[:tn.find(".")]
-            ret.setdefault(tn, {})
-            ret[tn][an] = v
-            ret[tn]["name"] = tn
-        return ret
+        return self.get_module_properties(project)["notifications"]
 
     def on_event(self, event, **params):
         class EmailCancelled(Exception):

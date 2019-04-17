@@ -298,18 +298,7 @@ class TestingModule(PatchewModule):
         ret = {}
         if isinstance(obj, Message):
             obj = obj.project
-        for k, v in obj.get_properties().items():
-            if not k.startswith("testing.tests."):
-                continue
-            tn = k[len("testing.tests."):]
-            if "." not in tn:
-                continue
-            an = tn[tn.find(".") + 1:]
-            tn = tn[:tn.find(".")]
-            ret.setdefault(tn, {})
-            ret[tn][an] = v
-            ret[tn]["name"] = tn
-        return ret
+        return self.get_module_properties(obj)["tests"]
 
     def _build_reset_ops(self, obj):
         if isinstance(obj, Message):
