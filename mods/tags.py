@@ -99,7 +99,6 @@ series cover letter, patch mail body and their replies.
         series_reviewers = _find_reviewers(series)
         reviewers = reviewers.union(series_reviewers)
         if num_reviewed == series.get_num()[1] or series_reviewers:
-            series.set_property("reviewed", True)
             series.set_property("reviewers", list(reviewers))
         if updated:
             emit_event("TagsUpdate", series=series)
@@ -124,8 +123,8 @@ series cover letter, patch mail body and their replies.
     def prepare_message_hook(self, request, message, detailed):
         if not message.is_series_head:
             return
-        if message.get_property("reviewed"):
-            reviewers = message.get_property("reviewers")
+        reviewers = message.get_property("reviewers", [])
+        if reviewers:
             message.status_tags.append({
                 "title": "Reviewed by " + ", ".join([x for x, y in reviewers]),
                 "type": "success",
