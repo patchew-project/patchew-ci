@@ -257,13 +257,15 @@ class ApplierGetView(APILoginRequiredView):
             return None
 
         response = prepare_series(request, m, fields=["project", "message-id", "patches",
-                                                      "properties", "tags"])
+                                                      "tags"])
 
         po = m.project
         for prop in ["git.push_to", "git.public_repo", "git.url_template"]:
             if po.get_property(prop):
                 response[prop] = po.get_property(prop)
         base = _instance.get_base(m)
+        # For backwards compatibility with old clients
+        response["properties"] = {}
         if base:
             response["git.repo"] = base.data["repo"]
             response["git.base"] = base.data["tag"]

@@ -180,8 +180,6 @@ def prepare_series(request, s, fields=None):
         r["message-id"] = s.message_id
     if want_field("patches"):
         r["patches"] = [prepare_patch(x) for x in s.get_patches()]
-    if want_field("properties"):
-        r["properties"] = get_properties(s)
     if want_field("tags"):
         r["tags"] = s.tags
     if want_field("is_complete"):
