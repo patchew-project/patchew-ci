@@ -19,7 +19,8 @@ class ImportTest(PatchewTestCase):
     def setUp(self):
         self.create_superuser()
         self.cli_login()
-        self.add_project("QEMU", "qemu-devel@nongnu.org")
+        self.p = self.add_project("QEMU", "qemu-devel@nongnu.org")
+        self.PROJECT_BASE = '%sprojects/%d/' % (self.REST_BASE, self.p.id)
 
     def test_import_one(self):
         self.cli_import("0001-simple-patch.mbox.gz")
@@ -35,14 +36,14 @@ class ImportTest(PatchewTestCase):
 
     def test_case_insensitive(self):
         self.cli_import("0002-unusual-cased-tags.mbox.gz")
-        a, b = self.check_cli(["search", "-r", "-o", "subject,properties"])
-        ao = json.loads(a)[0]
-        self.assertEqual(["Fam Zheng", "famz@redhat.com"],
-                         ao["properties"]["reviewers"][0])
+        MESSAGE_ID = '20160628014747.20971-1-famz@redhat.com'
+        resp = self.api_client.get(self.PROJECT_BASE + 'messages/' + MESSAGE_ID + '/')
+        self.assertEqual({"name": "Fam Zheng", "address": "famz@redhat.com"},
+                         resp.data["reviewers"][0])
         self.assertIn('Reviewed-By: Fam Zheng <famz@redhat.com>',
-                      ao["properties"]["tags"])
+                      resp.data["tags"])
         self.assertIn('tESTed-bY: Fam Zheng <famz@redhat.com>',
-                      ao["properties"]["tags"])
+                      resp.data["tags"])
 
     def test_non_utf_8(self):
         self.cli_import("0005-non-utf-8.mbox.gz")
@@ -55,13 +56,12 @@ class ImportTest(PatchewTestCase):
 
     def test_obsoleted_by(self):
         self.cli_import("0009-obsolete-by.mbox.gz")
-        a, b = self.check_cli(["search", "-r", "-o", "subject,properties"])
-        ao = json.loads(a)
-        for m in ao:
-            if "[PATCH]" in m["subject"]:
-                self.assertTrue(m["properties"].get("obsoleted-by"))
-            else:
-                self.assertFalse(m["properties"].get("obsoleted-by"))
+        OLD_ID = '20160628014747.20971-1-famz@redhat.com'
+        NEW_ID = '20160628014747.20971-2-famz@redhat.com'
+        resp = self.api_client.get(self.PROJECT_BASE + 'series/' + OLD_ID + '/')
+        self.assertEqual(self.PROJECT_BASE + 'series/' + NEW_ID + '/', resp.data["obsoleted_by"])
+        resp = self.api_client.get(self.PROJECT_BASE + 'series/' + NEW_ID + '/')
+        self.assertEqual(None, resp.data["obsoleted_by"])
 
     def test_import_invalid_byte(self):
         self.add_project("EDK2", "edk2-devel@lists.01.org")
