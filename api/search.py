@@ -18,6 +18,10 @@ from django.contrib.postgres.search import SearchQuery, SearchVector, SearchVect
 from django.db.models import Lookup
 from django.db.models.fields import Field
 
+# These are used by migrations.  Do not change them!
+FLAG_REVIEWED = '[reviewed]'
+FLAG_OBSOLETE = '[obsolete]'
+FLAG_TESTED = '[tested]'
 
 @Field.register_lookup
 class NotEqual(Lookup):
@@ -254,16 +258,13 @@ Search text keyword in the email message. Example:
             self._add_to_keywords('PULL')
             return Q(subject__contains='[PULL') | Q(subject__contains='[GIT PULL')
         elif cond == "reviewed":
-            return self._make_filter_subquery(MessageProperty, Q(name="reviewed", value=True))
+            return Q(flags__contains=FLAG_REVIEWED)
         elif cond in ("obsoleted", "old"):
-            return self._make_filter_subquery(
-                MessageProperty,
-                Q(name="obsoleted-by", value__isnull=False) & ~Q(name="obsoleted-by", value__iexact='')
-            )
+            return Q(flags__contains=FLAG_OBSOLETE)
         elif cond == "applied":
             return self._make_filter_subquery(MessageResult, Q(name="git", status=Result.SUCCESS))
         elif cond == "tested":
-            return self._make_filter_subquery(MessageProperty, Q(name="testing.done", value=True))
+            return Q(flags__contains=FLAG_TESTED)
         elif cond == "merged":
             return Q(is_merged=True)
         return None

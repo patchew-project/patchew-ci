@@ -519,6 +519,7 @@ class Message(models.Model):
     objects = MessageManager()
 
     maintainers = jsonfield.JSONField(blank=True, default=[])
+    flags = models.CharField(max_length=64, blank=True, default="")
 
     def save_mbox(self, mbox_blob):
         save_blob(mbox_blob, self.message_id)
@@ -606,6 +607,18 @@ class Message(models.Model):
         if self.num_patches == -1:
             self.refresh_num_patches()
         return self.num_patches
+
+    def add_flag(self, flag):
+        assert flag[0] == '[' and flag[-1] == ']'
+        if not flag in self.flags:
+            self.flags += flag
+            self.save()
+
+    def remove_flag(self, flag):
+        assert flag[0] == '[' and flag[-1] == ']'
+        if flag in self.flags:
+            self.flags = self.flags.replace(flag, '')
+            self.save()
 
     def get_property(self, prop, default=None):
         return self.get_properties().get(prop, default)

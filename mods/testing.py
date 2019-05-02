@@ -22,7 +22,7 @@ from api.views import APILoginRequiredView
 from api.models import (Message, MessageProperty, MessageResult,
         Project, ProjectResult, Result)
 from api.rest import PluginMethodField, reverse_detail
-from api.search import SearchEngine
+from api.search import SearchEngine, FLAG_TESTED
 from event import emit_event, declare_event, register_handler
 from patchew.logviewer import LogView
 from schema import *
@@ -138,9 +138,9 @@ class TestingModule(PatchewModule):
                 _instance.tester_check_in(po, result.data['tester'])
             if not self.get_testing_results(obj,
                            status__in=(Result.PENDING, Result.RUNNING)).exists():
-                obj.set_property("testing.done", True)
                 obj.set_property("testing.tested-head", result.data["head"])
                 if isinstance(obj, Message):
+                    obj.add_flag(FLAG_TESTED)
                     obj.set_property("testing.tested-base",
                                      self.get_msg_base_tags(obj))
             if isinstance(obj, Project):
@@ -188,10 +188,11 @@ class TestingModule(PatchewModule):
             for tn in all_tests:
                 if not tn in done_tests:
                     obj.create_result(name='testing.' + tn, status=Result.PENDING).save()
-            if len(done_tests) < len(all_tests):
-                obj.set_property("testing.done", None)
-                return
-        obj.set_property("testing.done", True)
+        if isinstance(obj, Message):
+            if len(all_tests) and len(done_tests) == len(all_tests):
+                obj.add_flag(FLAG_TESTED)
+            else:
+                obj.remove_flag(FLAG_TESTED)
 
     def project_recalc_pending_tests(self, project):
         self.recalc_pending_tests(project)
@@ -204,10 +205,9 @@ class TestingModule(PatchewModule):
             self.recalc_pending_tests(obj)
 
     def clear_and_start_testing(self, obj, test=""):
-        for k in list(obj.get_properties().keys()):
-            if k == "testing.done" or \
-               k == "testing.tested-head":
-                obj.set_property(k, None)
+        obj.set_property("testing.tested-head", None)
+        if isinstance(obj, Message):
+            obj.remove_flag(FLAG_TESTED)
         if test:
             r = self.get_testing_result(obj, test)
             if r:
@@ -342,7 +342,7 @@ class TestingModule(PatchewModule):
                 "type": "danger",
                 "char": "T",
                 })
-        elif message.get_property("testing.done"):
+        elif FLAG_TESTED in message.flags:
             message.status_tags.append({
                 "title": "Testing passed",
                 "url": reverse("series_detail",

@@ -13,6 +13,7 @@ from mbox import addr_db_to_rest, parse_address
 from event import register_handler, emit_event, declare_event
 from api.models import Message
 from api.rest import PluginMethodField
+from api.search import FLAG_OBSOLETE, FLAG_REVIEWED
 import rest_framework
 
 REV_BY_PREFIX = "Reviewed-by:"
@@ -73,8 +74,10 @@ series cover letter, patch mail body and their replies.
             return m1.version > m2.version and m1.date >= m2.date
         for m in series.get_alternative_revisions():
             if newer_than(m, series):
+                series.add_flag(FLAG_OBSOLETE)
                 series.set_property("obsoleted-by", m.message_id)
             elif newer_than(series, m):
+                m.add_flag(FLAG_OBSOLETE)
                 m.set_property("obsoleted-by", series.message_id)
 
         updated = self.update_tags(series)
@@ -100,7 +103,7 @@ series cover letter, patch mail body and their replies.
         series_reviewers = _find_reviewers(series)
         reviewers = reviewers.union(series_reviewers)
         if num_reviewed == series.get_num()[1] or series_reviewers:
-            series.set_property("reviewed", True)
+            series.add_flag(FLAG_REVIEWED)
             series.set_property("reviewers", list(reviewers))
         if updated:
             emit_event("TagsUpdate", series=series)
