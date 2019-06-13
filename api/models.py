@@ -306,7 +306,7 @@ class Project(models.Model):
     project_head = property(get_project_head, set_project_head)
 
     def series_update(self, message_ids):
-        updated_series = []
+        updated_series = set()
         for msgid in message_ids:
             if msgid.startswith("<") and msgid.endswith(">"):
                 msgid = msgid[1:-1]
@@ -319,7 +319,7 @@ class Project(models.Model):
             mo.save()
             s = mo.get_series_head()
             if s:
-                updated_series.append(s)
+                updated_series.add(s)
         for series in updated_series:
             for p in series.get_patches():
                 if not p.is_merged:
