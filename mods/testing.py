@@ -223,6 +223,14 @@ class TestingModule(PatchewModule):
     def project_recalc_pending_tests(self, project):
         self.recalc_pending_tests(project)
 
+        # Delete failures if their corresponding results do not exist anymore
+        test_dict = self.get_tests(obj)
+        failures = obj.get_property("testing.failures")
+        failures = [r.name
+            for r in self.get_testing_results(obj)
+            if r.name in failures and v.get("enabled", False)]
+        obj.set_property("testing.failures", failures)
+
         # Only operate on messages for which testing has not completed yet.
         message_ids = self.filter_testing_results(
             MessageResult.objects, message__project=project, status=Result.PENDING
