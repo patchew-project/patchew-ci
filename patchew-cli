@@ -71,7 +71,7 @@ def git_clone_repo(clone, remote, head, logf, checkout=True, recursive=False):
     )
     if head.startswith("refs/tags/"):
         subprocess.check_call(
-            ["git", "fetch", remote_name, "+%s:%s" % (head, head)],
+            ["git", "fetch", "--force", remote_name, head],
             cwd=cache_repo,
             stdout=logf,
             stderr=logf,
