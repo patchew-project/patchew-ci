@@ -30,6 +30,8 @@ COOKIE_FILENAME = os.path.expanduser("~/.patchew.cookie")
 class APIError(Exception):
     pass
 
+def git_head():
+    return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip()
 
 def git_clone_repo(clone, remote, head, logf, checkout=True, recursive=False):
     cache_repo = os.path.join(
@@ -108,6 +110,9 @@ def git_clone_repo(clone, remote, head, logf, checkout=True, recursive=False):
             ["git", "checkout", head, "-b", "test"], stderr=logf, stdout=logf, cwd=clone
         )
 
+def http_get(url):
+    logging.debug("http get: " + url)
+    return urllib.request.urlopen(url).read()
 
 class SubCommand(object):
     """ Base class of subcommand"""
@@ -698,6 +703,50 @@ class TesterCommand(SubCommand):
                 time.sleep(60)
         return 0
 
+class GitlabPipelineCheckCommand(SubCommand):
+    name = "gitlab-pipeline-check"
+    def arguments(self, parser):
+        parser.add_argument("--project", "-p", required=True)
+        parser.add_argument("--head", "-H", type=str)
+        parser.add_argument("--gitlab", "-g", type=str, default="https://gitlab.com/",
+                            help="gitlab server addr")
+
+    def _find_pipeline(self, pipelines, sha):
+        for p in pipelines:
+            if p['sha'] == sha:
+                return p
+
+    def do(self, args, argv):
+        head = args.head or git_head()
+        gitlab = args.gitlab
+        if gitlab.endswith("/"):
+            gitlab = gitlab[:-1]
+
+        project_encoded = urllib.parse.quote(args.project, safe='')
+        print("Looking up pipeline...")
+        p = None
+        for page in range(10):
+            url = "%s/api/v4/projects/%s/pipelines/?page=%d&per_page=100" % (
+                    gitlab, project_encoded, page)
+            resp = json.loads(http_get(url))
+            p = self._find_pipeline(resp, head)
+            if p:
+                break
+        if not p:
+            raise Exception("Pipeline not found")
+        print("Found pipeline %d: %s" % (p['id'], p['web_url']))
+
+        while p['status'] not in ['success', 'failed']:
+            print("Waiting for pipeline to finish...")
+            time.sleep(120)
+            url = "%s/api/v4/projects/%s/pipelines/%d" % (
+                    gitlab, project_encoded, p['id'])
+            p = json.loads(http_get(url))
+        if p['status'] == 'success':
+            print("Pipeline succeeded")
+            return 0
+        print("Pipeline failed")
+        return 1
 
 class ApplyFailedException(Exception):
     pass
