@@ -33,6 +33,33 @@ class ImportTest(PatchewTestCase):
         )
         self.assertEquals(resp.status_code, 404)
 
+    def test_message_generation(self):
+        resp = self.apply_and_retrieve(
+            "0001-simple-patch.mbox.gz",
+            self.p.id,
+            "20160628014747.20971-1-famz@redhat.com")
+        message = self.api_client.get(resp.data["message"])
+        gen = message.data["gen"]
+
+        resp = self.apply_and_retrieve(
+            "0036-simple-patch-review.mbox.gz",
+            self.p.id,
+            "20160628014747.20971-1-famz@redhat.com")
+        message = self.api_client.get(resp.data["message"])
+        self.assertGreater(message.data["gen"], gen)
+
+    def test_series_generation(self):
+        resp = self.apply_and_retrieve(
+            "0001-simple-patch.mbox.gz",
+            self.p.id,
+            "20160628014747.20971-1-famz@redhat.com")
+        gen = resp.data["gen"]
+        resp = self.apply_and_retrieve(
+            "0036-simple-patch-review.mbox.gz",
+            self.p.id,
+            "20160628014747.20971-1-famz@redhat.com")
+        self.assertGreater(resp.data["gen"], gen)
+
     def test_rest_single(self):
         resp = self.apply_and_retrieve(
             "0003-single-patch-reviewed.mbox.gz",

@@ -593,6 +593,7 @@ class Message(models.Model):
     subject = HeaderFieldModel()
     stripped_subject = HeaderFieldModel(db_index=True)
     version = models.PositiveSmallIntegerField(default=0)
+    gen = models.PositiveSmallIntegerField(default=0)
     sender = jsonfield.JSONCharField(max_length=4096, db_index=True)
     recipients = jsonfield.JSONField()
     tags = jsonfield.JSONField(default=[])

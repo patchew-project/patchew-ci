@@ -374,6 +374,7 @@ class BaseMessageSerializer(serializers.ModelSerializer):
             "date",
             "sender",
             "recipients",
+            "gen",
         )
         fields = read_only_fields + ("tags",)
 

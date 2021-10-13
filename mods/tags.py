@@ -71,6 +71,9 @@ series cover letter, patch mail body and their replies.
         new = self.look_for_tags(s, s)
         if set(old) != set(new):
             s.tags = list(set(new))
+            # The gen field for series is updated later
+            if s.is_patch:
+                s.gen += 1
             s.save()
             return True
 
@@ -127,6 +130,9 @@ series cover letter, patch mail body and their replies.
             if need_event:
                 emit_event("SeriesReviewed", series=series)
         if updated:
+            if not series.is_patch:
+                series.gen += 1
+                series.save()
             emit_event("TagsUpdate", series=series)
 
         if not series.topic.latest or newer_than(series, series.topic.latest):
