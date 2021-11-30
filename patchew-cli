@@ -977,7 +977,7 @@ class ApplyCommand(SubCommand):
             print("No series need apply")
             return 3
         logf = tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8")
-        push_repo = toapply.get("git.push_to")
+        push_repo = None if 'ci.skip' in str(toapply.get('git.push_options')) else toapply.get("git.push_to")
         public_repo = toapply.get("git.public_repo")
         wd = tempfile.mkdtemp(dir="/var/tmp")
         try:
