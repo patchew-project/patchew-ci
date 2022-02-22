@@ -472,6 +472,9 @@ class MessageManager(models.Manager):
         if "in_reply_to" not in validated_data:
             msg.in_reply_to = m.get_in_reply_to() or ""
         msg.stripped_subject = m.get_subject(strip_tags=True)
+        msg.searched_subject = msg.subject \
+            .replace(".", " ") \
+            .replace("/", " ")
         msg.version = m.get_version()
         msg.prefixes = m.get_prefixes()
         if m.is_series_head():
@@ -596,6 +599,7 @@ class Message(models.Model):
     last_comment_date = models.DateTimeField(db_index=True, null=True)
     subject = HeaderFieldModel()
     stripped_subject = HeaderFieldModel(db_index=True)
+    searched_subject = HeaderFieldModel()
     version = models.PositiveSmallIntegerField(default=0)
     sender = jsonfield.JSONCharField(max_length=4096, db_index=True)
     recipients = jsonfield.JSONField()

@@ -411,7 +411,7 @@ Search text keyword in the email message. Example:
         if self._last_keywords:
             if connection.vendor == "postgresql":
                 queryset = queryset.annotate(
-                    subjsearch=NonNullSearchVector("subject", config="english")
+                    subjsearch=NonNullSearchVector("searched_subject", config="english")
                 )
                 searchq = reduce(
                     lambda x, y: x & y,
