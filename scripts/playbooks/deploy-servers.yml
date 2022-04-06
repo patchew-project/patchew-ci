@@ -4,6 +4,10 @@
       prompt: "Instance name of the webserver"
       default: patchew-server
       private: no
+    - name: container_dir
+      prompt: "The base directory for the container"
+      default: /data
+      private: no
     - name: superuser_name
       prompt: "Admin account to create (optional)"
       default: ""
@@ -13,22 +17,22 @@
       default: "adminpass"
       private: yes
   vars:
-    base_dir: "/data/{{ instance_name }}"
+    base_dir: "{{ container_dir }}/{{ instance_name }}"
     src_dir: "{{ base_dir }}/src"
     data_dir: "{{ base_dir }}/data"
-    docker_run_args: "--link {{ instance_name }}-db:patchew-db"
+    podman_run_args: "--link {{ instance_name }}-db:patchew-db"
   tasks:
     - name: Create data dir
       file:
         path: "{{ data_dir }}"
         state: directory
-    - import_tasks: tasks/docker-deploy.yml
+    - import_tasks: tasks/podman-deploy.yml
       vars:
         instance_role: server
     - name: Create superuser
       when: superuser_name != ""
       shell: |
-        docker exec -i {{ instance_name }} bash -c "
+        podman exec -i {{ instance_name }} bash -c "
         cd /opt/patchew &&
         . venv/bin/activate &&
         ./manage.py migrate &&
