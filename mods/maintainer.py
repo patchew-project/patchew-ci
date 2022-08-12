@@ -269,7 +269,7 @@ class MaintainerModule(PatchewModule):
                 raise Http404("Project not found")
             q = q.filter(message__project=po)
 
-        for pid, qn, msgid, subject in q.values_list(
+        for pid, qn, msgid, subject in q[:26].values_list(
             "message__project_id", "name", "message__message_id", "message__subject"
         ):
             data.setdefault(pid, {})
